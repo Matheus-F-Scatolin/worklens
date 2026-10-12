@@ -14,6 +14,14 @@ and opening a fresh empty one above it.
 
 ## [Unreleased]
 
+### Security
+- A capture is dropped when the focused app, window, tab or page changed at any point while it was
+  taken, not only when the two ends differ, so a quick switch through a blocked site is not kept.
+- Redaction now catches YAML multi-line values, camelCase credential names (`awsSecretAccessKey`,
+  `clientSecret`), quoted values with escaped quotes, and short values after a credential name.
+  Plain prose such as "Password: troubleshooting guide" is left alone.
+- `worklens capture-once --out` writes its screenshot readable only by you.
+
 ## [0.1.0] - 2026-10-12
 
 ### Added
