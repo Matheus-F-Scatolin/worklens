@@ -119,7 +119,15 @@ build if a new host appears in `Sources/` without a row here
   `CAPTURE_MAX_EDGE_PX` on its longest edge and JPEG-encoded at `CAPTURE_JPEG_QUALITY`
   before it is written — the full-resolution frame never touches the disk. `CAPTURE_SOURCE`
   decides the rest: `accessibility` never takes one, `screenshot` always does, `both` takes
-  both. (`Capture/CaptureScheduler.swift`, `Capture/ImagePipeline.swift`)
+  both. A screenshot is of **one window**: the focused window of the app in front, the one the
+  blocklists just approved. Other windows beside or on top of it, the desktop and your other
+  displays are not in the picture. When that window cannot be found on its own (no window on
+  screen, only a panel), no picture is taken; the window's text is kept if there is any, and
+  otherwise nothing is. Taking the picture takes a moment, so before it is kept Worklens checks
+  that the same window of the same app is still in front and still allowed; if you switched
+  away, or the tab moved to a blocked site, the picture and its text are dropped unsent.
+  (`Capture/CaptureScheduler.swift`, `Capture/ScreenCaptureService.swift`,
+  `Capture/ImagePipeline.swift`)
 - **Metadata about the moment**: the timestamp, which display, the frontmost app's bundle id and
   name, the window title, and — only while `COLLECT_BROWSER_URL=true` — the frontmost browser
   tab's URL, without its query string or fragment. The address of the document the focused
@@ -314,7 +322,12 @@ next capture on:
 - `BLOCKED_TITLE_PATTERNS` — case-insensitive regexes, tested against the window title *and* the
   URL, semicolon-separated in `.env`.
 - `BLOCKED_URL_HOSTS` — hosts, semicolon-separated in `.env`, matched at a dot boundary so
-  `nubank.com.br` also covers `app.nubank.com.br`.
+  `nubank.com.br` also covers `app.nubank.com.br`. The tab's address is read for this check even
+  while `COLLECT_BROWSER_URL=false`; with that off it is used for the check and then dropped, never
+  stored. The list **fails closed**: while it has any entry, a browser whose address Worklens
+  cannot read (no Automation permission for it, Firefox without Accessibility, a probe that timed
+  out) is treated as blocked, recorded as `blocked:host_unknown`, and not captured at all.
+  *Capture now* says so when it happens. With the list empty, nothing changes for browsers.
 
 Settings → Privacy edits all three in place, as one **Never look at** list with a type on each
 row, and **Choose an app…** reads an app's bundle identifier out of the app so you never have to
@@ -328,7 +341,7 @@ effect immediately; one from a terminal takes effect when the running app next r
 (*Reload configuration*, or a restart). (`Config/Blocklists.swift`)
 
 A blocked moment still writes a row — the app name, and the reason (`blocked:bundle`,
-`blocked:title`, `blocked:host`) — so your timeline says "1Password, 4 minutes" rather than
+`blocked:title`, `blocked:host`, `blocked:host_unknown`) — so your timeline says "1Password, 4 minutes" rather than
 going quietly blank. Nothing else about it is stored. (`Privacy/PrivacyPolicy.swift`)
 
 **Delete what just happened:** the menu's *Delete last 10 minutes…* and *Delete last hour…*.

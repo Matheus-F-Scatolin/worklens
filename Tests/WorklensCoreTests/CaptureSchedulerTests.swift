@@ -120,13 +120,33 @@ private final class FakeCapture: ScreenCapturing, @unchecked Sendable {
         return permission
     }
 
-    func capture() async throws -> CapturedFrame {
+    /// The focused window's id as `focusedWindowID` reports it after the capture; nil means
+    /// the app has no window to photograph, and `captureFocusedWindow` throws `.noWindow`.
+    private var windowID: CGWindowID? = 7
+    /// Runs inside the capture, before it returns: how a test switches app or window mid-capture.
+    private var duringCapture: (@Sendable () -> Void)?
+    private(set) var capturedPids: [pid_t] = []
+
+    func setWindowID(_ value: CGWindowID?) { lock.lock(); windowID = value; lock.unlock() }
+    func setDuringCapture(_ body: (@Sendable () -> Void)?) { lock.lock(); duringCapture = body; lock.unlock() }
+
+    func focusedWindowID(pid: pid_t) async -> CGWindowID? {
+        lock.lock(); defer { lock.unlock() }
+        return windowID
+    }
+
+    func captureFocusedWindow(pid: pid_t) async throws -> CapturedFrame {
         lock.lock()
         let value = gray
         let denied = permission == .denied
+        let window = windowID
+        let during = duringCapture
         captureCount += 1
+        capturedPids.append(pid)
         lock.unlock()
         if denied { throw CaptureError.permissionDenied }
+        guard let window else { throw CaptureError.noWindow }
+        during?()
 
         let context = CGContext(
             data: nil, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 0,
@@ -136,7 +156,7 @@ private final class FakeCapture: ScreenCapturing, @unchecked Sendable {
         context.fill(CGRect(x: 0, y: 0, width: 64, height: 64))
         return CapturedFrame(
             image: context.makeImage()!, displayID: 1,
-            pointSize: CGSize(width: 64, height: 64), capturedAt: Date()
+            pointSize: CGSize(width: 64, height: 64), capturedAt: Date(), windowID: window
         )
     }
 }
@@ -2024,5 +2044,123 @@ struct CoverageTransitionTests {
         let written = try events(harness)
         #expect(written.map(\.coverageKind) == [.started, .stopped, .started])
         #expect(written[1].at == lastFrame)
+    }
+}
+
+// MARK: - Security findings #1 and #4
+
+@MainActor
+@Suite("CaptureScheduler photographs one approved window")
+struct CaptureSchedulerFocusedWindowTests {
+    @Test("The capture asks for the approved app's focused window, by its pid")
+    func capturesTheApprovedPid() async throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+
+        #expect(await harness.scheduler.tick().decision == .describedPending)
+        #expect(harness.capture.capturedPids == [1])
+    }
+
+    @Test("Another window comes to the front during the capture: nothing is kept")
+    func windowChangedMidCapture() async throws {
+        let capture = FakeCapture()
+        capture.setDuringCapture { capture.setWindowID(8) }
+        let harness = try Harness(capture: capture)
+        defer { harness.cleanUp() }
+
+        let result = await harness.scheduler.tick()
+        #expect(result.decision == .focusChanged)
+        #expect(result.savedImage == false)
+        #expect(try harness.rows().isEmpty)
+        #expect(try harness.jpegCount() == 0)
+    }
+
+    @Test("A switch to a blocked app during the capture: nothing is kept")
+    func switchedToBlockedAppMidCapture() async throws {
+        let capture = FakeCapture()
+        let harness = try Harness(
+            configure: { $0.blockedBundleIDs = ["com.1password.1password"] }, capture: capture
+        )
+        defer { harness.cleanUp() }
+        let context = harness.context
+        capture.setDuringCapture {
+            context.current = ForegroundContext(
+                bundleID: "com.1password.1password", appName: "1Password", pid: 2, windowTitle: "Vault"
+            )
+        }
+
+        #expect(await harness.scheduler.tick().decision == .focusChanged)
+        #expect(try harness.rows().isEmpty)
+        #expect(try harness.jpegCount() == 0)
+    }
+
+    @Test("No window to photograph and no text: nothing is collected, and no display either")
+    func noWindowNoText() async throws {
+        let capture = FakeCapture()
+        capture.setWindowID(nil)
+        let harness = try Harness(capture: capture)
+        defer { harness.cleanUp() }
+
+        let result = await harness.scheduler.tick()
+        #expect(result.decision == .noWindow)
+        #expect(try harness.rows().isEmpty)
+        #expect(try harness.jpegCount() == 0)
+    }
+
+    @Test("No window to photograph, but window text: a text-only row")
+    func noWindowFallsBackToText() async throws {
+        let capture = FakeCapture()
+        capture.setWindowID(nil)
+        let harness = try Harness(
+            configure: { $0.captureSource = .both },
+            capture: capture,
+            snapshotter: FakeSnapshotter(FakeSnapshotter.snapshot(coverage: .partial, text: "hello"))
+        )
+        defer { harness.cleanUp() }
+
+        let result = await harness.scheduler.tick()
+        #expect(result.decision == .describedPending)
+        let row = try #require(try harness.rows().first)
+        #expect(row.captureSource == .accessibility)
+        #expect(row.imagePath == nil)
+        #expect(try harness.jpegCount() == 0)
+    }
+
+    @Test("Host exclusions set and the browser will not say where it is: blocked, never photographed")
+    func hostUnknownFailsClosed() async throws {
+        let harness = try Harness(
+            configure: { $0.blockedURLHosts = ["bank.example"] },
+            context: ForegroundContext(
+                bundleID: "com.google.Chrome", appName: "Chrome", pid: 4, windowTitle: "Account",
+                policySite: .unreadable
+            )
+        )
+        defer { harness.cleanUp() }
+
+        let result = await harness.scheduler.tick()
+        #expect(result.decision == .hostUnknown)
+        #expect(harness.capture.captureCount == 0)
+        let rows = try harness.rows()
+        #expect(rows.count == 1)
+        #expect(rows[0].skipReason == .blockedHostUnknown)
+        #expect(rows[0].isRedacted)
+        #expect(rows[0].windowTitle == nil)
+        #expect(rows[0].appName == "Chrome")
+    }
+
+    @Test("A privately read blocked host is blocked with URL collection off")
+    func privateHostBlocked() async throws {
+        let harness = try Harness(
+            configure: { $0.blockedURLHosts = ["bank.example"] },
+            context: ForegroundContext(
+                bundleID: "com.google.Chrome", appName: "Chrome", pid: 4, windowTitle: "Account",
+                policySite: .host("app.bank.example")
+            )
+        )
+        defer { harness.cleanUp() }
+
+        #expect(await harness.scheduler.tick().decision == .blocked)
+        #expect(harness.capture.captureCount == 0)
+        #expect(try harness.rows().first?.skipReason == .blockedHost)
     }
 }

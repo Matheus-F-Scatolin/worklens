@@ -680,6 +680,12 @@ public struct MenuModel: Equatable, Sendable {
             return L10n.string("Not captured: the screen is locked.")
         case .noText:
             return L10n.string("Not captured: this window exposed no text to read.")
+        case .hostUnknown:
+            return L10n.string("Not captured: Worklens could not read this page's address to check it against your never-capture list.")
+        case .noWindow:
+            return L10n.string("Not captured: no window was in front to take a screenshot of.")
+        case .focusChanged:
+            return L10n.string("Not captured: the window in front changed while the screenshot was being taken.")
         case .unchanged:
             return L10n.string("Nothing new: this screen looks the same as the last one.")
         case .idle, .paused, .tooSoon, .error:

@@ -750,3 +750,92 @@ struct AppleScriptBackoffTests {
         #expect(fake.statusReads == 6)
     }
 }
+
+// MARK: - The host the policy reads privately (security finding #4)
+
+@Suite("ForegroundContext policy site")
+struct ForegroundContextPolicySiteTests {
+    private func resolve(
+        bundleID: String? = "com.google.Chrome",
+        header: AXHeader? = nil,
+        probe: String? = nil,
+        collectBrowserURL: Bool,
+        blockedHosts: [String]
+    ) -> (resolved: ForegroundContextCollector.Resolved, probeCalls: Int) {
+        var config = Config.defaults()
+        config.collectBrowserURL = collectBrowserURL
+        config.blockedURLHosts = blockedHosts
+        let scripting = CountingScripting(url: probe)
+        let resolved = ForegroundContextCollector.resolve(
+            bundleID: bundleID, header: header, windowListTitle: { nil },
+            config: config, scripting: scripting
+        )
+        return (resolved, scripting.calls)
+    }
+
+    @Test("URL collection off with host exclusions set: the host is read for the policy and nothing is kept")
+    func hostReadPrivately() {
+        let outcome = resolve(
+            header: AXHeader(pid: 7, webURL: "https://App.Bank.example/account?id=9"),
+            collectBrowserURL: false, blockedHosts: ["bank.example"]
+        )
+        #expect(outcome.resolved.policySite == .host("app.bank.example"))
+        #expect(outcome.resolved.browserURL == nil)
+        #expect(outcome.resolved.urlHost == nil)
+        #expect(outcome.resolved.urlSource == .none)
+    }
+
+    @Test("URL collection off with host exclusions set still asks the AppleScript probe")
+    func probeStillAsked() {
+        let outcome = resolve(
+            probe: "https://bank.example/login", collectBrowserURL: false, blockedHosts: ["bank.example"]
+        )
+        #expect(outcome.probeCalls == 1)
+        #expect(outcome.resolved.policySite == .host("bank.example"))
+        #expect(outcome.resolved.browserURL == nil)
+    }
+
+    @Test("A browser whose address cannot be read is unreadable, not 'no host'")
+    func unreadable() {
+        let outcome = resolve(probe: nil, collectBrowserURL: true, blockedHosts: ["bank.example"])
+        #expect(outcome.resolved.policySite == .unreadable)
+    }
+
+    @Test("Nothing to keep and nothing to check: no probe, and the site counts as unread")
+    func neitherSetting() {
+        let outcome = resolve(
+            probe: "https://example.com/", collectBrowserURL: false, blockedHosts: []
+        )
+        #expect(outcome.probeCalls == 0)
+        #expect(outcome.resolved.policySite == .unreadable)
+    }
+
+    @Test("A page with no host at all is read, so it is not unreadable")
+    func noHostPage() {
+        let outcome = resolve(
+            header: AXHeader(pid: 7, webURL: "about:blank"),
+            collectBrowserURL: false, blockedHosts: ["bank.example"]
+        )
+        #expect(outcome.resolved.policySite == .noHost)
+    }
+
+    @Test("An app that is not a browser has no site to check")
+    func notABrowser() {
+        let outcome = resolve(
+            bundleID: "com.apple.Terminal", collectBrowserURL: true, blockedHosts: ["bank.example"]
+        )
+        #expect(outcome.resolved.policySite == nil)
+    }
+
+    @Test("The private site never reaches an encoded context")
+    func notEncoded() throws {
+        let context = ForegroundContext(
+            bundleID: "com.google.Chrome", appName: "Chrome", pid: 1, policySite: .host("bank.example")
+        )
+        let json = String(decoding: try JSONEncoder().encode(context), as: UTF8.self)
+        #expect(!json.contains("bank.example"))
+        let decoded = try JSONDecoder().decode(ForegroundContext.self, from: Data(json.utf8))
+        #expect(decoded.policySite == nil)
+        #expect(decoded.bundleID == "com.google.Chrome")
+    }
+}
