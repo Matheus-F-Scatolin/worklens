@@ -56,6 +56,7 @@ struct WorklensCLI: AsyncParsableCommand {
                     CaptureOnceCommand.self,
                     DescribeOneCommand.self,
                     ExpectRestartCommand.self,
+                    RenderDemoCommand.self,
                 ]
             ),
         ]
