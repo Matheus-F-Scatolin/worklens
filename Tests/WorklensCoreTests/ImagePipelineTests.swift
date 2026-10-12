@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import ImageIO
 import Testing
 @testable import WorklensCore
 
@@ -318,5 +319,31 @@ struct ImagePipelineSourceTests {
         #expect(!text.contains("import AppKit"))
         #expect(!text.contains("import UIKit"))
         #expect(!text.contains("import SwiftUI"))
+    }
+}
+
+// MARK: - capture-once's PNG
+
+@Suite("ImagePipeline private PNG")
+struct ImagePipelinePrivatePNGTests {
+    @Test("The PNG is owner-only (0600), not the umask's 0644, in a folder created for it")
+    func writesOwnerOnly() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("worklens-png-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appendingPathComponent("nested/shot.png")
+
+        try ImagePipeline.writePrivatePNG(Fixture.solid(32, 16, gray: 0.5), to: url)
+
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        let mode = try #require(attributes[.posixPermissions] as? Int)
+        #expect(mode & 0o777 == FilePermissions.privateFile)
+
+        let source = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        #expect(image.width == 32 && image.height == 16)
+        // Nothing but the PNG is left behind: no temporary file beside it.
+        let left = try FileManager.default.contentsOfDirectory(atPath: url.deletingLastPathComponent().path)
+        #expect(left == ["shot.png"])
     }
 }

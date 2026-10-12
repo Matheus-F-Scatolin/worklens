@@ -1,8 +1,6 @@
 import ArgumentParser
 import CoreGraphics
 import Foundation
-import ImageIO
-import UniformTypeIdentifiers
 import WorklensCore
 
 struct CaptureOnceCommand: AsyncParsableCommand {
@@ -69,19 +67,12 @@ struct CaptureOnceCommand: AsyncParsableCommand {
         FileHandle.standardError.write(Data((message + "\n").utf8))
     }
 
+    /// Owner-only (0600) from the moment it exists: this is a picture of the whole display.
     private static func writePNG(_ image: CGImage, to url: URL) throws {
-        try FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(), withIntermediateDirectories: true
-        )
-        guard let destination = CGImageDestinationCreateWithURL(
-            url as CFURL, UTType.png.identifier as CFString, 1, nil
-        ) else {
-            printError("Could not create a PNG at \(url.path)")
-            throw ExitCode.failure
-        }
-        CGImageDestinationAddImage(destination, image, nil)
-        guard CGImageDestinationFinalize(destination) else {
-            printError("Could not write \(url.path)")
+        do {
+            try ImagePipeline.writePrivatePNG(image, to: url)
+        } catch {
+            printError("Could not write \(url.path): \(error.localizedDescription)")
             throw ExitCode.failure
         }
     }

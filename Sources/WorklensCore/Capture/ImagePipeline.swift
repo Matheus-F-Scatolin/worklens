@@ -77,6 +77,30 @@ public enum ImagePipeline {
         return data as Data
     }
 
+    // MARK: PNG
+
+    /// Lossless PNG bytes, for `worklens capture-once`. Nil only if ImageIO refuses the image.
+    public static func pngData(_ image: CGImage) -> Data? {
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            data, UTType.png.identifier as CFString, 1, nil
+        ) else { return nil }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return data as Data
+    }
+
+    /// `image` as a PNG at `url`, readable by its owner alone (0600) from the moment the file
+    /// exists: a whole-display screenshot is never world-readable, whatever the umask. Missing
+    /// parent folders are created; existing ones are left as they are.
+    public static func writePrivatePNG(_ image: CGImage, to url: URL) throws {
+        guard let data = pngData(image) else { throw CocoaError(.fileWriteUnknown) }
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
+        try FilePermissions.writePrivate(data, to: url)
+    }
+
     // MARK: Fingerprint
 
     /// The 32x32 luminance thumbnail plus the 8x8 difference hash.
