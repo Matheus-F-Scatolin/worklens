@@ -133,15 +133,15 @@ struct RenderIcon {
         let faint = WorklensMark.Palette.muted
         text("Worklens", font(104, bold: true), ink, at: CGPoint(x: 110, y: 356), in: ctx)
         text(
-            "Where your day actually went —",
+            "Where your day actually went,",
             font(38, bold: false), dimmed, at: CGPoint(x: 114, y: 272), in: ctx
         )
         text(
-            "and which parts a machine could have done.",
+            "laid out as a timeline you can read.",
             font(38, bold: false), dimmed, at: CGPoint(x: 114, y: 220), in: ctx
         )
         text(
-            "A macOS menu-bar app  ·  your own API keys  ·  one folder on your Mac",
+            "A macOS menu-bar app  ·  your own Gemini key  ·  one folder on your Mac",
             font(25, bold: false), faint, at: CGPoint(x: 116, y: 152), in: ctx
         )
         return ctx.makeImage()!
