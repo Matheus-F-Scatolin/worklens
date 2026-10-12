@@ -48,6 +48,7 @@ struct WorklensApp: App {
         Window(ReaderCopy.windowTitle, id: AppModel.readerWindowID) {
             ReaderView(model: model)
         }
+        .defaultSize(width: Theme.ReaderWindow.idealWidth, height: Theme.ReaderWindow.idealHeight)
         .windowResizability(.contentMinSize)
         // No `.commands` for ⌘← / ⌘→: they live inside `ReaderView`, where the window itself is
         // the responder, which works whether or not `DockPresence` has put a menu bar up yet.

@@ -134,11 +134,15 @@ enum Theme {
     }
 
     /// The reader window (#134). Wider than Settings because the Weeks grid is seven columns wide.
+    /// The ideal size is also the scene's `defaultSize`, the size a first launch opens at: without
+    /// it a fresh Mac opened the window at its minimum, too small for Today's chart and the tour.
+    /// It is the size `render-demo` draws the README screenshots at, and macOS shrinks it to fit
+    /// a smaller screen.
     enum ReaderWindow {
         static let minWidth: CGFloat = 760
-        static let idealWidth: CGFloat = 900
+        static let idealWidth: CGFloat = 1140
         static let minHeight: CGFloat = 520
-        static let idealHeight: CGFloat = 700
+        static let idealHeight: CGFloat = 750
         /// How wide a centred sentence on a status card is allowed to get before it stops being
         /// readable.
         static let cardWidth: CGFloat = 380
