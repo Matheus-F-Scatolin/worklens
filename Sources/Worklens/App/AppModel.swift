@@ -53,10 +53,13 @@ final class AppModel: ObservableObject {
     @Published var openHotkeyClashesWithPause = false
     /// Mirrors `MenuState`, so Settings can read individual fields without re-deriving them.
     @Published private(set) var state = MenuState(locale: .autoupdatingCurrent)
-    /// What the auto-updater has to say — "main has moved (3f9a1c2) — the checkout has
-    /// uncommitted changes", or nil when the running build *is* `origin/main`. Only ever a line
-    /// in the version row; nothing about it is urgent.
+    /// What the auto-updater has to say — "A new version is available, but this copy can't
+    /// install it." — or nil when the running build *is* `origin/main`. Only ever a line in the
+    /// version row; nothing about it is urgent.
     @Published var updateAvailableLine: String?
+    /// Whether the last **Check now** found a new version this copy can install, which is when
+    /// Settings shows **Update and restart…**.
+    @Published var updateOffered = false
     /// What Settings → General → Updates' **Check now** last answered (#153), or nil until it is
     /// pressed. Separate from `updateAvailableLine`, which is the poller's line: one is a fact
     /// about this install, the other is the reply to a question somebody just asked.
@@ -2446,8 +2449,8 @@ final class AppModel: ObservableObject {
     /// poller to ask.
     func checkForUpdates() {
         guard let repo = AppModel.repoRoot else {
-            updateCheckLine = "This copy was not built from a checkout on this Mac, so there is "
-                + "nothing here to update from."
+            updateCheckLine = "This copy of Worklens can't update itself."
+            updateOffered = false
             return
         }
         guard !checkingForUpdates else { return }
@@ -2459,6 +2462,7 @@ final class AppModel: ObservableObject {
             )
             checkingForUpdates = false
             updateCheckLine = AutoUpdatePolicy.manualCheckLine(facts)
+            updateOffered = AutoUpdatePolicy.offersUpdate(facts)
         }
     }
 
@@ -2597,10 +2601,8 @@ final class AppModel: ObservableObject {
         confirm(
             title: String(localized: "Update Worklens and restart?", comment: "Alert"),
             message: String(
-                format: String(
-                    localized: "Pulls the latest commit in %@, rebuilds, re-signs and relaunches. Worklens quits only once the build succeeds and comes back by itself, about a minute later; nothing is captured in between. A pause survives the restart: if capture is paused now, it is still paused when Worklens comes back. If the build fails you keep the build you have and the log opens.",
-                    comment: "Alert body"),
-                repo.path),
+                localized: "Worklens closes and opens again by itself in about a minute.",
+                comment: "Alert body"),
             confirmTitle: String(localized: "Update", comment: "Alert button")
         )
     }

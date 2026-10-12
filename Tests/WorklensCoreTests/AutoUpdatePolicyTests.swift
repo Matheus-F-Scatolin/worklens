@@ -120,27 +120,35 @@ struct AutoUpdatePolicyTests {
     }
 
     /// #153: **Check now** renders the same decision as a sentence and acts on none of it. The
-    /// thing each case has to say is which of the two it is — "you are current" or "main moved,
-    /// and here is why this Mac has not followed it".
-    @Test("a manual check says what it found and starts nothing")
+    /// sentence says whether there is a new version and nothing about branches, commits or the
+    /// checkout; only an update this copy can take offers the button.
+    @Test("a manual check says what it found in plain words and starts nothing")
     func manualCheckLines() {
-        #expect(
-            AutoUpdatePolicy.manualCheckLine(facts(running: main)).contains("newest commit")
-        )
-        let moved = AutoUpdatePolicy.manualCheckLine(facts())
-        #expect(moved.contains("main has moved"))
-        #expect(moved.contains(String(main.prefix(7))))
-        #expect(moved.contains("Update and restart"))
+        #expect(AutoUpdatePolicy.manualCheckLine(facts(running: main)) == "Worklens is up to date.")
+        #expect(!AutoUpdatePolicy.offersUpdate(facts(running: main)))
+
+        #expect(AutoUpdatePolicy.manualCheckLine(facts()) == "A new version is available.")
+        #expect(AutoUpdatePolicy.offersUpdate(facts()))
+
         // Offline is an answer here, where the poller stays silent about it: somebody asked.
-        #expect(AutoUpdatePolicy.manualCheckLine(facts(remote: nil)).contains("Could not reach"))
-        // A reason the update could not be taken is the reason, not an offer to take it.
+        #expect(AutoUpdatePolicy.manualCheckLine(facts(remote: nil)).hasPrefix("Couldn't check"))
+        #expect(!AutoUpdatePolicy.offersUpdate(facts(remote: nil)))
+
+        // A copy that cannot follow main says so, without the reason, and offers no button.
         let blocked = AutoUpdatePolicy.manualCheckLine(facts(dirty: true))
-        #expect(blocked.contains("uncommitted"))
-        #expect(!blocked.contains("Update and restart"))
-        // Work in flight is the poller's "wait", and it reads as a reason too rather than as
-        // silence. #150 widened that reason past reports, so the sentence is the general one.
-        #expect(
-            AutoUpdatePolicy.manualCheckLine(facts(report: true)).contains("in the middle of")
-        )
+        #expect(blocked == AutoUpdatePolicy.blockedLine)
+        #expect(!AutoUpdatePolicy.offersUpdate(facts(dirty: true)))
+
+        // Work in flight is only the poller's reason to wait; somebody pressing the button is
+        // the person that wait was for.
+        #expect(AutoUpdatePolicy.manualCheckLine(facts(report: true)) == "A new version is available.")
+        #expect(AutoUpdatePolicy.offersUpdate(facts(report: true)))
+
+        for f in [facts(), facts(running: main), facts(remote: nil), facts(dirty: true), facts(report: true)] {
+            let line = AutoUpdatePolicy.manualCheckLine(f)
+            #expect(!line.contains("main"))
+            #expect(!line.contains(String(main.prefix(7))))
+            #expect(!line.contains("checkout"))
+        }
     }
 }

@@ -101,7 +101,7 @@ final class AutoUpdater {
             Log.ui.debug("auto-update: waiting, \(reason)")
         case let .blocked(reason):
             let short = String(facts.remoteCommit?.prefix(7) ?? "main")
-            model?.updateAvailableLine = "main has moved (\(short)): \(reason)"
+            model?.updateAvailableLine = AutoUpdatePolicy.blockedLine
             if lastBlocked != reason {
                 lastBlocked = reason
                 Log.ui.info("auto-update: not updating to \(short), \(reason)")
@@ -117,7 +117,7 @@ final class AutoUpdater {
         let short = String(commit.prefix(7))
         updateStartedAt = Date()
         Log.ui.info("auto-update: main moved to \(short), updating and restarting")
-        model?.updateAvailableLine = "Updating to \(short)…"
+        model?.updateAvailableLine = "Updating…"
         // The app is about to quit and come back; a notification is the only part of this that
         // outlives the process and explains why the menu bar blinked.
         // #149: no branch name and no commit SHA in a banner — the SHA stays in the log line

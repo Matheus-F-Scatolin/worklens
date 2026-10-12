@@ -14,6 +14,11 @@ and opening a fresh empty one above it.
 
 ## [Unreleased]
 
+### Changed
+- Settings → General → Updates says whether a new version is available in plain words, with no
+  branch or commit, and shows **Update and restart…** only when there is one. The confirmation is
+  one line. The reader window opens at 1140 by 750 on a first launch instead of its minimum.
+
 ### Security
 - A capture is dropped when the focused app, window, tab or page changed at any point while it was
   taken, not only when the two ends differ, so a quick switch through a blocked site is not kept.

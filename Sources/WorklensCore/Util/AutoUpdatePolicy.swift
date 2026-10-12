@@ -109,23 +109,36 @@ public enum AutoUpdatePolicy {
 /// none of the answers: it is a question, and "Update and restart…" beside it is the answer. So
 /// the decision is rendered as a sentence instead of being executed, and "offline" is a sentence
 /// too — the poller stays silent about it because nobody asked, and here somebody did.
+///
+/// The sentence is for someone who wants to know whether there is a new version, not how the
+/// updater works: no branch, no commit, no checkout. The reason an update cannot be taken goes to
+/// the log (`AutoUpdater`), where somebody debugging it will look.
 extension AutoUpdatePolicy {
     public static func manualCheckLine(
         _ facts: AutoUpdateFacts, mainBranch: String = "main"
     ) -> String {
-        guard let remote = facts.remoteCommit else {
-            return "Could not reach GitHub just now, so there is nothing to compare this build "
-                + "against. Nothing was sent."
+        guard facts.remoteCommit != nil else {
+            return "Couldn't check for updates. Try again when you're online."
         }
-        let short = String(remote.prefix(7))
         switch decide(facts, mainBranch: mainBranch) {
         case .upToDate:
-            return "You are running the newest commit on \(mainBranch) (\(short))."
-        case .update:
-            return "\(mainBranch) has moved (\(short)). \"Update and restart…\" rebuilds this "
-                + "checkout and relaunches Worklens."
-        case let .blocked(reason), let .wait(reason):
-            return "\(mainBranch) has moved (\(short)): \(reason)."
+            return "Worklens is up to date."
+        case .update, .wait:
+            return "A new version is available."
+        case .blocked:
+            return blockedLine
+        }
+    }
+
+    /// What a new version this copy cannot install by itself reads as, in Settings.
+    public static let blockedLine = "A new version is available, but this copy can't install it."
+
+    /// Whether the answer is a new version the **Update and restart…** button can take.
+    public static func offersUpdate(_ facts: AutoUpdateFacts, mainBranch: String = "main") -> Bool {
+        switch decide(facts, mainBranch: mainBranch) {
+        case .update: return true
+        case .wait: return facts.remoteCommit != nil
+        case .upToDate, .blocked: return false
         }
     }
 }

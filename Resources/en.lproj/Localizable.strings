@@ -347,7 +347,6 @@
 "Project renamed" = "Project renamed";
 "Projects" = "Projects";
 "Pull the week together from the days that have data." = "Pull the week together from the days that have data.";
-"Pulls the latest commit in %@, rebuilds, re-signs and relaunches. Worklens quits only once the build succeeds and comes back by itself, about a minute later; nothing is captured in between. A pause survives the restart: if capture is paused now, it is still paused when Worklens comes back. If the build fails you keep the build you have and the log opens." = "Pulls the latest commit in %@, rebuilds, re-signs and relaunches. Worklens quits only once the build succeeds and comes back by itself, about a minute later; nothing is captured in between. A pause survives the restart: if capture is paused now, it is still paused when Worklens comes back. If the build fails you keep the build you have and the log opens.";
 "Quit Claude Desktop before connecting, then open it again." = "Quit Claude Desktop before connecting, then open it again.";
 "Quit Worklens" = "Quit Worklens";
 "Raise to %@ and resume" = "Raise to %@ and resume";
@@ -504,6 +503,7 @@
 "While your consent screen stays in Testing, Google expires the sign-in every 7 days. Worklens then pauses Calendar and shows a Reconnect button: one click, no terminal." = "While your consent screen stays in Testing, Google expires the sign-in every 7 days. Worklens then pauses Calendar and shows a Reconnect button: one click, no terminal.";
 "Window title" = "Window title";
 "Working." = "Working.";
+"Worklens closes and opens again by itself in about a minute." = "Worklens closes and opens again by itself in about a minute.";
 "Worklens" = "Worklens";
 "Worklens %@" = "Worklens %@";
 "Worklens already uses this to open Worklens. Pick another." = "Worklens already uses this to open Worklens. Pick another.";

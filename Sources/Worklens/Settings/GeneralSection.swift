@@ -212,7 +212,7 @@ struct GeneralSection: View {
                 }
                 .buttonStyle(.settings)
                 .disabled(model.checkingForUpdates)
-                if AppModel.repoRoot != nil {
+                if AppModel.repoRoot != nil, model.updateOffered {
                     Button(String(localized: "Update and restart…", comment: "Button")) { model.updateAndRestart() }
                         .buttonStyle(.settings)
                 }
