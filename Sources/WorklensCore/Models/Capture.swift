@@ -14,6 +14,10 @@ public enum SkipReason: String, Codable, Sendable, CaseIterable, DatabaseValueCo
     case blockedBundle = "blocked:bundle"
     case blockedTitle = "blocked:title"
     case blockedHost = "blocked:host"
+    /// `BLOCKED_URL_HOSTS` is set and a browser was in front whose address could not be read, so
+    /// there was no telling whether the page was a blocked one. Recorded as blocked: the host
+    /// blocklist fails closed rather than letting an unknown page through (security finding #4).
+    case blockedHostUnknown = "blocked:host_unknown"
     /// `CAPTURE_SOURCE=accessibility` and the focused window exposed nothing to walk (#54).
     /// There is no picture to fall back to in that mode, so the frame is recorded and not
     /// described. The timeline treats it the way it treats an unchanged frame: it carries no
@@ -27,7 +31,7 @@ public enum SkipReason: String, Codable, Sendable, CaseIterable, DatabaseValueCo
     /// frame was blocked should ask, so a new list does not need a new comparison everywhere.
     public var isBlocked: Bool {
         switch self {
-        case .blocked, .blockedBundle, .blockedTitle, .blockedHost: return true
+        case .blocked, .blockedBundle, .blockedTitle, .blockedHost, .blockedHostUnknown: return true
         case .unchanged, .idle, .locked, .asleep, .budget, .noText: return false
         }
     }

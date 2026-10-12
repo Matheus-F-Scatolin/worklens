@@ -26,7 +26,9 @@ is still on.
 
 **Blocked** — a moment that matched one of the three blocklists (`BLOCKED_BUNDLE_IDS`,
 `BLOCKED_TITLE_PATTERNS`, `BLOCKED_URL_HOSTS`). The app name and the reason are recorded so the
-day's time still adds up; the title, the URL and the image are not.
+day's time still adds up; the title, the URL and the image are not. While `BLOCKED_URL_HOSTS` has
+any entry, a browser whose address Worklens cannot read counts as blocked too
+(`blocked:host_unknown`): the host list fails closed rather than letting an unknown page through.
 
 **Block** — a run of consecutive frames that were the same kind of work, one row in
 `activity_blocks` and one paragraph in the timeline: an app, a task label, a start, an end and a

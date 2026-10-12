@@ -39,10 +39,12 @@ public struct PrivacyPolicy: Sendable {
     /// Normalised: lowercased, no scheme, no path, no leading dot.
     public let urlHosts: [String]
 
-    /// The three `skip_reason` values a redaction can carry.
+    /// The `skip_reason` values a redaction can carry.
     public static let bundleReason = SkipReason.blockedBundle.rawValue
     public static let titleReason = SkipReason.blockedTitle.rawValue
     public static let hostReason = SkipReason.blockedHost.rawValue
+    /// Not a list match: a browser whose host could not be read while host exclusions are set.
+    public static let hostUnknownReason = SkipReason.blockedHostUnknown.rawValue
 
     public init(bundleIDs: [String], titlePatterns: [String], urlHosts: [String] = []) {
         self.bundleIDs = Set(bundleIDs)
@@ -71,13 +73,24 @@ public struct PrivacyPolicy: Sendable {
 
     // MARK: Deciding
 
+    /// The decision for one frame. On top of the three lists, a fourth rule: with
+    /// `BLOCKED_URL_HOSTS` set, a browser whose address could not be read is blocked too, because
+    /// "no host" there means "could not check", not "not a blocked site" (security finding #4).
+    /// The string overload below has no such rule — it is what the app-switch recorder asks, and
+    /// that one never sees a page.
     public func decision(for context: ForegroundContext) -> PrivacyDecision {
-        decision(
+        let listed = decision(
             bundleID: context.bundleID,
             windowTitle: context.windowTitle,
             browserURL: context.browserURL,
-            urlHost: context.urlHost
+            // The stored host when there is one, else the one read for this check alone.
+            urlHost: context.urlHost ?? context.policySite?.host
         )
+        if listed == .allow, !urlHosts.isEmpty, context.urlHost == nil,
+           context.policySite == .unreadable {
+            return .redact(reason: PrivacyPolicy.hostUnknownReason)
+        }
+        return listed
     }
 
     public func decision(

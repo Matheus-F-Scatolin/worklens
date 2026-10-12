@@ -328,3 +328,8 @@
 "Dark all day" = "Escuro o dia todo";
 "Follows your Mac" = "Segue o seu Mac";
 "A drawing of the sample week: made-up days of real tools, a few meetings and a light weekend." = "Um desenho da semana de exemplo: dias inventados com ferramentas reais, algumas reuniões e um fim de semana leve.";
+
+/* Security: one window per screenshot, host blocklist fails closed */
+"Not captured: Worklens could not read this page's address to check it against your never-capture list." = "Não capturado: o Worklens não conseguiu ler o endereço desta página para conferir com a sua lista de nunca capturar.";
+"Not captured: no window was in front to take a screenshot of." = "Não capturado: não havia nenhuma janela na frente para capturar.";
+"Not captured: the window in front changed while the screenshot was being taken." = "Não capturado: a janela da frente mudou enquanto a captura era feita.";

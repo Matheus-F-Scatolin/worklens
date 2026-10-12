@@ -282,6 +282,19 @@ follows from that, and nothing is deleted on upgrade: no table is dropped (`repo
 - **A huge number no longer stops the MCP server.** A tool call such as `days` with
   `{"limit":1e100}` used to end `worklens mcp`; it now answers "limit must be a whole number"
   like any other bad argument, and the server keeps running.
+- **A screenshot is of the approved window and nothing else.** Worklens photographed the whole
+  display once the window in front had passed the blocklists, so a blocked app open beside it (a
+  password manager, a bank) was in the picture and went to Gemini. It now photographs only the
+  focused window of the app it just approved, on whichever display that window is; with no such
+  window it takes no picture and keeps the window text if there is any. After the picture comes
+  back it checks that the same window of the same app is still in front and still allowed, and
+  drops the picture and its text when you switched away or the tab moved to a blocked site.
+- **The site blocklist no longer lets a page through when it cannot see the address.** With
+  `BLOCKED_URL_HOSTS` set, a browser whose address could not be read (URL collection off, no
+  Automation permission, Firefox) was simply allowed. The address is now read for the check even
+  while `COLLECT_BROWSER_URL=false`, without being stored, and a browser whose address still cannot
+  be read is treated as blocked (`blocked:host_unknown`); *Capture now* says why.
+
 - **A fresh one-line install keeps its data in Application Support, not in the git checkout.**
   `setup.sh --yes` no longer copies `.env.example` into the clone, and `scripts/launch.sh` never
   points an installed app at a checkout's `.env`, so the first launch writes the app's own

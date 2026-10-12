@@ -33,9 +33,38 @@ public struct ForegroundContext: Codable, Sendable, Equatable {
     /// Which of the two title readers supplied `windowTitle` (#55).
     public var titleSource: Source
     /// Which of the two URL readers supplied `browserURL` (#55). `.none` for every app that is
-    /// not a known browser, and whenever `COLLECT_BROWSER_URL` is off.
+    /// not a known browser, and whenever `COLLECT_BROWSER_URL` is off (`policySite` may still
+    /// have been read).
     public var urlSource: Source
     public var collectedAt: Date
+    /// What the privacy policy knows about the frontmost tab's site, read for `BLOCKED_URL_HOSTS`
+    /// and for nothing else. Filled even when `COLLECT_BROWSER_URL` is off (then `browserURL` and
+    /// `urlHost` stay nil), so turning URL collection off cannot turn the host blocklist off with
+    /// it. Nil for every app that is not a known browser. Never written to a row, never part of
+    /// `signature`, and left out of `Codable` on purpose.
+    public var policySite: PolicySite?
+
+    /// The frontmost tab as the host blocklist sees it.
+    public enum PolicySite: Equatable, Sendable {
+        /// The address was read and has this (lowercased) host.
+        case host(String)
+        /// The address was read and has no host at all: `about:blank`, a `file:` page.
+        case noHost
+        /// A known browser whose address could not be read — no Automation grant, Firefox
+        /// without an accessibility URL, a timed-out probe. The host blocklist fails closed on it.
+        case unreadable
+
+        public var host: String? {
+            if case let .host(host) = self { return host }
+            return nil
+        }
+    }
+
+    /// `policySite` is deliberately missing: it exists for the policy check alone.
+    private enum CodingKeys: String, CodingKey {
+        case bundleID, appName, pid, windowTitle, browserURL, urlHost, titleSource, urlSource
+        case collectedAt
+    }
 
     public init(
         bundleID: String? = nil,
@@ -46,7 +75,8 @@ public struct ForegroundContext: Codable, Sendable, Equatable {
         urlHost: String? = nil,
         titleSource: Source = .none,
         urlSource: Source = .none,
-        collectedAt: Date = Date()
+        collectedAt: Date = Date(),
+        policySite: PolicySite? = nil
     ) {
         self.bundleID = bundleID
         self.appName = appName
@@ -57,6 +87,7 @@ public struct ForegroundContext: Codable, Sendable, Equatable {
         self.titleSource = titleSource
         self.urlSource = urlSource
         self.collectedAt = collectedAt
+        self.policySite = policySite
     }
 
     /// Stable string behind "did the context change?": `bundleID|windowTitle|host+path`.
@@ -110,7 +141,8 @@ public struct ForegroundReading: Sendable {
 
 /// Reads the foreground context from the OS. Cheap by design: `NSWorkspace`, the focused window's
 /// accessibility header when that grant exists, and — only as fallbacks — one
-/// `CGWindowListCopyWindowInfo` call and, for browsers with `COLLECT_BROWSER_URL` on, AppleScript.
+/// `CGWindowListCopyWindowInfo` call and, for browsers with `COLLECT_BROWSER_URL` on or
+/// `BLOCKED_URL_HOSTS` set, AppleScript.
 public final class ForegroundContextCollector: ForegroundContextProviding, @unchecked Sendable {
     private let config: Config
     private let scripting: BrowserURLScripting
@@ -166,7 +198,8 @@ public final class ForegroundContextCollector: ForegroundContextProviding, @unch
                 urlHost: resolved.urlHost,
                 titleSource: resolved.titleSource,
                 urlSource: resolved.urlSource,
-                collectedAt: now
+                collectedAt: now,
+                policySite: resolved.policySite
             ),
             header: header
         )
@@ -179,6 +212,8 @@ public final class ForegroundContextCollector: ForegroundContextProviding, @unch
         var urlHost: String?
         var titleSource: ForegroundContext.Source = .none
         var urlSource: ForegroundContext.Source = .none
+        /// The site for the policy check alone; see `ForegroundContext.policySite`.
+        var policySite: ForegroundContext.PolicySite?
     }
 
     /// The precedence, as a pure function of the header and the two fallbacks, so it is tested
@@ -208,23 +243,34 @@ public final class ForegroundContextCollector: ForegroundContextProviding, @unch
         // the only thing left — so keep it clean rather than "Page — Mozilla Firefox".
         resolved.windowTitle = BrowserRegistry.strippedTitle(resolved.windowTitle, bundleID: bundleID)
 
-        guard config.collectBrowserURL,
-              let browser = BrowserRegistry.browser(forBundleID: bundleID)
-        else { return resolved }
+        guard let browser = BrowserRegistry.browser(forBundleID: bundleID) else { return resolved }
+        // A browser is in front, so the host blocklist has a question to ask. Until a reader
+        // answers it, the answer is "unreadable", which the policy treats as blocked whenever
+        // `BLOCKED_URL_HOSTS` is set (security finding #4).
+        resolved.policySite = .unreadable
+
+        // `COLLECT_BROWSER_URL` decides what is *kept*; `BLOCKED_URL_HOSTS` still needs to know
+        // which site is in front. With the first off and the second set, the address is read
+        // here, its host handed to the policy, and the rest dropped.
+        guard config.collectBrowserURL || !config.blockedURLHosts.isEmpty else { return resolved }
 
         // The same normalization for both readers — the stored URL and the host the timeline
         // groups by must not depend on which one answered. Query strings are always stripped
         // (#87): they carry search terms and session tokens, and nothing here needs them.
+        var read: (normalized: BrowserRegistry.NormalizedURL, source: ForegroundContext.Source)?
         if let normalized = BrowserRegistry.normalize(header?.webURL) {
-            resolved.urlSource = .ax
-            resolved.browserURL = normalized.absolute
-            resolved.urlHost = normalized.host
+            read = (normalized, .ax)
         } else if let script = BrowserRegistry.urlScript(for: browser),
                   let raw = scripting.frontTabURL(bundleID: browser.bundleID, script: script),
                   let normalized = BrowserRegistry.normalize(raw) {
-            resolved.urlSource = .applescript
-            resolved.browserURL = normalized.absolute
-            resolved.urlHost = normalized.host
+            read = (normalized, .applescript)
+        }
+        guard let read else { return resolved }
+        resolved.policySite = read.normalized.host.map { .host($0) } ?? .noHost
+        if config.collectBrowserURL {
+            resolved.urlSource = read.source
+            resolved.browserURL = read.normalized.absolute
+            resolved.urlHost = read.normalized.host
         }
         return resolved
     }

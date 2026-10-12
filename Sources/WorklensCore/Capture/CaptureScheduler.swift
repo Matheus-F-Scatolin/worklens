@@ -39,6 +39,15 @@ public enum TickDecision: String, Sendable, CaseIterable {
     /// `CAPTURE_SOURCE=accessibility` and the window exposed no text (#54): nothing was
     /// collected, because in that mode there is no picture to fall back to.
     case noText = "no_text"
+    /// `BLOCKED_URL_HOSTS` is set and the browser in front would not say which site it was on,
+    /// so nothing was collected (security finding #4). A blocked row is written, like `blocked`.
+    case hostUnknown = "host_unknown"
+    /// The frontmost app had no window to photograph on its own, and no window text to fall back
+    /// on, so nothing was collected (security finding #1).
+    case noWindow = "no_window"
+    /// The window in front, or what the policy said about it, changed while the screenshot or
+    /// the text was being collected, so the result was dropped (security finding #1).
+    case focusChanged = "focus_changed"
     case error
 }
 
@@ -652,6 +661,13 @@ public final class CaptureScheduler: ObservableObject {
                 // Only reachable under `accessibility`: `auto` would have taken a picture.
                 return try noTextTick(ctx, startedAt: startedAt)
             }
+            // The walk was asynchronous too: keep its text only if the same window is still in
+            // front and still allowed (security finding #1).
+            guard CaptureRevalidation.contextStillValid(
+                before: ctx, after: context.collect(), policy: privacy
+            ) else {
+                return focusChangedTick(ctx, startedAt: startedAt)
+            }
             if state != .running {
                 state = .running
                 // #146: a no-op unless the last transition was a gap — which is how a restored
@@ -677,11 +693,16 @@ public final class CaptureScheduler: ObservableObject {
         if await capture.permissionState() == .denied {
             return permissionMissingTick(startedAt: startedAt)
         }
-        let frame: CapturedFrame
+        // Security finding #1: the focused window of the app the policy just approved, and only
+        // that window. Never the whole display, which would also photograph a blocked app open
+        // beside it; when that window cannot be resolved there is no picture at all.
+        let captured: CapturedFrame?
         do {
-            frame = try await capture.capture()
+            captured = try await capture.captureFocusedWindow(pid: ctx.pid)
         } catch CaptureError.permissionDenied {
             return permissionMissingTick(startedAt: startedAt)
+        } catch CaptureError.noWindow {
+            captured = nil
         }
         permissionRetryAfter = nil
         if state != .running {
@@ -698,6 +719,44 @@ public final class CaptureScheduler: ObservableObject {
         }
         let coverage = axCoverage
         let textChanged = textMoved(ax, coverage)
+
+        // Revalidate before anything is kept or sent: the capture was asynchronous, and in that
+        // gap you may have switched to a blocked app or a blocked site. A changed answer drops
+        // the whole tick, picture and text alike.
+        let after = context.collect()
+        let stillValid: Bool
+        if let captured {
+            stillValid = CaptureRevalidation.screenshotStillValid(
+                before: ctx, after: after,
+                capturedWindowID: captured.windowID,
+                currentWindowID: await capture.focusedWindowID(pid: after.pid),
+                policy: privacy
+            )
+        } else {
+            stillValid = CaptureRevalidation.contextStillValid(before: ctx, after: after, policy: privacy)
+        }
+        guard stillValid else { return focusChangedTick(ctx, startedAt: startedAt) }
+
+        guard let frame = captured else {
+            // No window to photograph on its own. The window text, if the walk found any, is
+            // still worth a text-only row; with none there is nothing to keep.
+            guard let ax, let textChanged else {
+                return TickResult(
+                    captureId: nil, decision: .noWindow,
+                    elapsedMs: elapsedMs(since: startedAt), appName: ctx.appName
+                )
+            }
+            let needsDescribe = DescribeDecision.needsDescribeFromText(
+                textChanged: textChanged,
+                signatureChanged: signatureChanged,
+                secondsSinceLastDescribed: sinceDescribed,
+                heartbeat: heartbeat
+            )
+            return try await writeCapture(
+                frame: nil, processed: nil, needsDescribe: needsDescribe, source: .accessibility,
+                context: ctx, ax: ax, startedAt: startedAt
+            )
+        }
 
         // 10. Downscale, fingerprint and (maybe) encode, off the main actor — this is the only
         // part of a tick heavy enough to be worth the hop.
@@ -950,9 +1009,12 @@ public final class CaptureScheduler: ObservableObject {
     private func blockedTick(
         _ ctx: ForegroundContext, reason: SkipReason, startedAt: Date
     ) throws -> TickResult {
+        // A browser that would not say which site it was on is blocked for a different reason
+        // than a list match, and "Capture now" says which (security finding #4).
+        let decision: TickDecision = reason == .blockedHostUnknown ? .hostUnknown : .blocked
         guard lastWrittenSkipReason != reason || ctx.bundleID != lastBlockedBundleID else {
             return TickResult(
-                captureId: nil, decision: .blocked,
+                captureId: nil, decision: decision,
                 elapsedMs: elapsedMs(since: startedAt), appName: ctx.appName
             )
         }
@@ -973,8 +1035,26 @@ public final class CaptureScheduler: ObservableObject {
         lastWrittenSkipReason = reason
         lastBlockedBundleID = ctx.bundleID
         forgetLastFrame()
+        if reason == .blockedHostUnknown {
+            // The app name only, once per stretch — never the title or a URL.
+            Log.capture.info(
+                "\(ctx.appName ?? "a browser") did not say which site it is on and BLOCKED_URL_HOSTS "
+                    + "is set; nothing was captured until it does"
+            )
+        }
         return TickResult(
-            captureId: row.id, decision: .blocked,
+            captureId: row.id, decision: decision,
+            elapsedMs: elapsedMs(since: startedAt), appName: ctx.appName
+        )
+    }
+
+    /// The window or the policy's answer moved while the tick was collecting (security finding
+    /// #1). Nothing is written: the picture and the text may show something the policy never
+    /// approved, and the next tick starts from the new window anyway.
+    private func focusChangedTick(_ ctx: ForegroundContext, startedAt: Date) -> TickResult {
+        Log.capture.debug("the window in front changed during collection; the result was dropped")
+        return TickResult(
+            captureId: nil, decision: .focusChanged,
             elapsedMs: elapsedMs(since: startedAt), appName: ctx.appName
         )
     }
