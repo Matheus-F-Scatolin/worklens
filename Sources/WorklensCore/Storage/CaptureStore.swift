@@ -2,9 +2,19 @@ import Foundation
 import GRDB
 
 /// Reads and writes `captures`.
+///
+/// Every row is written with its window title, address and context signature put through
+/// `TextRedactor` first, so a credential in a title is never stored, indexed for search or handed
+/// to an MCP client. The redactor is the built-in one unless the caller passes its own, as
+/// `CaptureScheduler` does to add `REDACT_EXTRA_PATTERNS`.
 public struct CaptureStore: Sendable {
     private let db: Database
-    public init(_ db: Database) { self.db = db }
+    private let redactor: TextRedactor
+
+    public init(_ db: Database, redactor: TextRedactor = TextRedactor()) {
+        self.db = db
+        self.redactor = redactor
+    }
 
     /// `app_state` key holding the previous frame's fingerprint, so change detection survives a restart.
     public static let lastFingerprintKey = "last_fingerprint"
@@ -15,16 +25,18 @@ public struct CaptureStore: Sendable {
     public static let lastAXTextHashKey = "last_ax_text_hash"
 
     public func insert(_ capture: Capture) throws {
+        let row = capture.redactingMetadata(with: redactor)
         try db.writer.write { db in
-            try capture.insert(db)
-            try index(capture, in: db)
+            try row.insert(db)
+            try index(row, in: db)
         }
     }
 
     public func update(_ capture: Capture) throws {
+        let row = capture.redactingMetadata(with: redactor)
         try db.writer.write { db in
-            try capture.update(db)
-            try index(capture, in: db)
+            try row.update(db)
+            try index(row, in: db)
         }
     }
 
@@ -296,5 +308,18 @@ public struct CaptureStore: Sendable {
             try SearchIndex.removeAll(db, captureIds: condemned.map(\.id))
             return condemned.compactMap(\.imagePath)
         }
+    }
+}
+
+extension Capture {
+    /// The row with every text the foreground context supplied put through `redactor`: the window
+    /// title, the address and the context signature (which embeds the title). Redacting twice
+    /// changes nothing, so a row read back and updated keeps its text.
+    public func redactingMetadata(with redactor: TextRedactor) -> Capture {
+        var row = self
+        row.windowTitle = redactor.redactIfPresent(windowTitle).text
+        row.browserUrl = redactor.redactIfPresent(browserUrl).text
+        row.contextSignature = redactor.redactIfPresent(contextSignature).text
+        return row
     }
 }

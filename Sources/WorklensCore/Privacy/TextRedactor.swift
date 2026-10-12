@@ -56,7 +56,30 @@ public struct TextRedactor: Sendable {
 
         /// `["card": 1, "secret": 2]` — what goes into `details_json` and `redactions_json`.
         public var countsJSON: [String: Int] { TextRedactor.countsJSON(counts) }
+
+        /// `counts`, or the placeholders `text` holds where there are more of a kind. A window
+        /// title is redacted when it is stored, so the describer redacts it a second time and
+        /// finds `[CARD_1]` rather than a card; this is what still reports the card it replaced.
+        public var countsWithPlaceholders: [Kind: Int] {
+            counts.merging(TextRedactor.placeholderCounts(in: text), uniquingKeysWith: max)
+        }
     }
+
+    /// How many placeholders of each kind `text` holds: `[CARD_1]`, `[OTP]` and the rest.
+    public static func placeholderCounts(in text: String) -> [Kind: Int] {
+        guard text.contains("[") else { return [:] }
+        var counts: [Kind: Int] = [:]
+        let ns = text as NSString
+        placeholderRule.enumerateMatches(in: text, options: [], range: NSRange(location: 0, length: ns.length)) { match, _, _ in
+            guard let range = match?.range(at: 1), range.location != NSNotFound,
+                  let kind = Kind(rawValue: ns.substring(with: range))
+            else { return }
+            counts[kind, default: 0] += 1
+        }
+        return counts
+    }
+
+    private static let placeholderRule = rx(#"\[(CARD|IBAN|OTP|SECRET|PASSWORD|CUSTOM)(?:_[0-9]+)?\]"#)
 
     /// Patterns from `REDACT_EXTRA_PATTERNS` that failed to compile. Dropped, with the source kept
     /// for the log — a typo in one pattern must not silently disable the rest, exactly as in
@@ -171,9 +194,10 @@ public struct TextRedactor: Sendable {
 
     // MARK: - URL queries
 
-    /// Drops the query string and fragment from every URL-shaped run in `text` and leaves
-    /// everything else byte for byte (#87, #332). The rule `redact` applies, exposed on its own so
-    /// the migration that repairs stored outlines (`AXOutlineRepair`) applies the same one.
+    /// Drops the query string and fragment from every URL-shaped run in `text`, and the userinfo
+    /// (`user:password@`) from every URL that has a scheme, and leaves everything else byte for
+    /// byte (#87, #332). The rule `redact` applies, exposed on its own so the migration that
+    /// repairs stored outlines (`AXOutlineRepair`) applies the same one.
     ///
     /// - With `http://` or `https://` (any case): everything from the first `?` or `#` to the
     ///   next whitespace goes.
@@ -225,6 +249,10 @@ public struct TextRedactor: Sendable {
     private static let urlQueryRules: [NSRegularExpression] = {
         let host = #"(?<![\p{L}\p{N}@./:\-])(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,24}(?![A-Za-z0-9-])(?::[0-9]{1,5})?"#
         return [
+            // Userinfo, any scheme: `https://alice:hunter2@example.com/` keeps
+            // `https://example.com/`. The authority ends at `/`, `?` or `#`, so an `@` in a path
+            // (`example.com/@user`) is not one.
+            rx(#"(?<=[A-Za-z0-9])://([^\s/?#@]+@)"#),
             // With a scheme: from the first `?` or `#` to whitespace.
             rx(#"\bhttps?://[^\s?#]*([?#]\S*)"#, [.caseInsensitive]),
             // Without one: a query that holds an `=`, and whatever follows it.
@@ -303,10 +331,33 @@ public struct TextRedactor: Sendable {
     /// One row per shape. Order matters only for a tie between two matches (see `redact`).
     private static let builtInRules: [Rule] = [
         // --- Passwords: the key stays, the value goes. Before the card rule, so
-        // `senha=4111111111111111` reads `[PASSWORD]` rather than `[CARD_1]`.
+        // `senha=4111111111111111` reads `[PASSWORD]` rather than `[CARD_1]`. The key may carry
+        // an identifier prefix (`DB_PASSWORD`, `new-password`) and quotes (`"password":"x"`), and
+        // be followed by `=` or by a colon on the same line (`password: x` in YAML or JSON).
+        // Every rule here starts at its keyword, not at the start of the identifier: a pattern
+        // that opens with a literal is what keeps a 3 000-character outline inside its budget.
         Rule(
             kind: .password,
-            regex: rx(#"(?<![A-Za-z0-9_])(?:password|senha|pwd|passwd)\s*=\s*("[^"\n]{1,200}"|'[^'\n]{1,200}'|[^\s&;"'\n]{1,200})"#, [.caseInsensitive]),
+            regex: rx(#"(?<![A-Za-z0-9])(?:password|passphrase|senha|pwd|passwd)["']?[ \t]*[:=][ \t]*("[^"\n]{1,200}"|'[^'\n]{1,200}'|[^\s&;,}"'\n]{1,200})"#, [.caseInsensitive]),
+            group: 1
+        ),
+        // The password inside a URL's userinfo, `scheme://user:password@host`. The whole
+        // userinfo is dropped (`urlQueryRanges`); this row is what counts it.
+        Rule(
+            kind: .password,
+            regex: rx(#"(?<=[A-Za-z0-9])://[^\s/?#@:]*:([^\s/?#@]+)@"#),
+            group: 1
+        ),
+
+        // --- Credential assignments: a key that ends in a word naming a secret (`api_key`,
+        // `client_secret`, `aws_secret_access_key`, `GITHUB_TOKEN`, `"private_key":`), then `=`
+        // or a colon, then a
+        // value of at least eight characters. The floor is what keeps prose like `Token: expired`
+        // or `secret: no` readable; a credential is never that short. A value that is already a
+        // placeholder is left alone, so redacting twice changes nothing.
+        Rule(
+            kind: .secret,
+            regex: rx(#"(?<![A-Za-z0-9])(?:secret|secret[_-]?key|token|api[_-]?key|private[_-]?key|access[_-]?key|credentials?)["']?[ \t]*[:=][ \t]*(?!\[[A-Z]+(?:_[0-9]+)?\])("[^"\n]{8,}"|'[^'\n]{8,}'|[^\s&;,}"'\n]{8,})"#, [.caseInsensitive]),
             group: 1
         ),
 

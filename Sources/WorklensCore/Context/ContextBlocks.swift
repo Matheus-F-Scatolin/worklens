@@ -32,6 +32,8 @@ public enum ContextBlocks {
             let start = max(event.startAt, range.start)
             let end = min(event.effectiveEndAt, range.end)
             guard end.timeIntervalSince(start) >= minimumDuration else { return nil }
+            // Redacted before the cut and before it is stored as the block's heading.
+            let shown = event.redacted()
 
             return ActivityBlock(
                 id: blockId(for: event),
@@ -40,8 +42,8 @@ public enum ContextBlocks {
                 endAt: end,
                 appKey: appKey,
                 taskKey: taskKey,
-                title: event.title?.nonEmpty,
-                summaryMd: ContextBody.oneLine(event.bodyMd, limit: 400),
+                title: shown.title?.nonEmpty,
+                summaryMd: ContextBody.oneLine(shown.bodyMd, limit: 400),
                 captureCount: 0,
                 source: event.source == .granola ? .granola : .calendar
             )
@@ -86,6 +88,8 @@ public enum ContextBlocks {
             let start = max(event.startAt, range.start)
             let end = min(event.effectiveEndAt, range.end)
             guard end.timeIntervalSince(start) >= minimumDuration else { return nil }
+            // Redacted before the cut and before it is stored as the block's heading.
+            let shown = event.redacted()
 
             return ActivityBlock(
                 id: awayBlockId(for: event),
@@ -94,8 +98,8 @@ public enum ContextBlocks {
                 endAt: end,
                 appKey: awayAppKey,
                 taskKey: awayTaskKey,
-                title: event.title?.nonEmpty,
-                summaryMd: ContextBody.oneLine(event.bodyMd, limit: 400),
+                title: shown.title?.nonEmpty,
+                summaryMd: ContextBody.oneLine(shown.bodyMd, limit: 400),
                 captureCount: 0,
                 source: .calendar
             )

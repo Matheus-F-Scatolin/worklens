@@ -265,8 +265,8 @@ struct DescribeWorkerRedactionTests {
         let harness = try Harness(describer: StubDescriber(json: goodJSON()))
         defer { harness.cleanUp() }
         let capture = try harness.addCapture(
-            windowTitle: "Checkout — 4111 1111 1111 1111 — senha=hunter2",
-            browserURL: "https://pay.example.com/orders?api_key=sk-live-9f8a7b6c5d4e3f2a1b"
+            windowTitle: "Checkout — 4111 1111 1111 1111 — senha=hunter2 — api_key=sk-live-9f8a7b6c5d4e3f2a1b",
+            browserURL: "https://alice:hunter2@pay.example.com/orders?api_key=sk-live-9f8a7b6c5d4e3f2a1b"
         )
 
         _ = try await harness.worker.processOne(captureId: capture.id)
@@ -274,13 +274,15 @@ struct DescribeWorkerRedactionTests {
         let prompt = try #require(harness.describer.requests.first?.userPrompt)
         #expect(prompt.contains("[CARD_1]"))
         #expect(prompt.contains("senha=[PASSWORD]"))
-        // #332: the key sat in the query, so it goes with the query and still counts below.
+        #expect(prompt.contains("api_key=[SECRET_1]"))
+        // The userinfo and the query go whole.
         #expect(prompt.contains("https://pay.example.com/orders"))
-        #expect(!prompt.contains("api_key"))
+        #expect(!prompt.contains("alice"))
         #expect(!prompt.contains("4111"))
         #expect(!prompt.contains("hunter2"))
         #expect(!prompt.contains("sk-live"))
 
+        // The title was redacted when it was stored, and the placeholders it holds still count.
         let stored = try #require(try harness.descriptions.fetch(captureId: capture.id))
         let details = try #require(stored.detailsJson)
         #expect(details.contains(#""redactions""#))
@@ -288,8 +290,39 @@ struct DescribeWorkerRedactionTests {
         #expect(details.contains(#""password":1"#))
         #expect(details.contains(#""secret":1"#))
 
-        // The row itself keeps what the user saw: this is their machine and their data.
-        #expect(try harness.captures.fetch(id: capture.id)?.windowTitle?.contains("4111") == true)
+        // The row itself never held the card or the password (#2): a title is stored, indexed
+        // and handed to MCP clients, so it is redacted on the way in.
+        let row = try #require(try harness.captures.fetch(id: capture.id))
+        #expect(row.windowTitle == "Checkout — [CARD_1] — senha=[PASSWORD] — api_key=[SECRET_1]")
+        #expect(row.browserUrl == "https://pay.example.com/orders")
+    }
+
+    @Test("a synced meeting's title is redacted before it enters the prompt")
+    func redactsMeetingTitle() async throws {
+        let harness = try Harness(describer: StubDescriber(json: goodJSON()))
+        defer { harness.cleanUp() }
+        try ContextEventStore(harness.db).upsert(ContextEvent(
+            source: .calendar, externalId: "evt-1",
+            startAt: noon.addingTimeInterval(-600), endAt: noon.addingTimeInterval(600),
+            title: "Rotate keys — password=hunter2 AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY",
+            isMeeting: true, syncedAt: noon
+        ))
+        let capture = Capture(
+            capturedAt: noon, appBundleId: "us.zoom.xos", appName: "zoom.us",
+            windowTitle: "Zoom Meeting", isMeeting: true, describeStatus: .pending
+        )
+        try harness.captures.insert(capture)
+        try harness.addAXSnapshot(capture, text: "[AXStaticText] Rotate keys")
+
+        _ = try await harness.worker.processOne(captureId: capture.id)
+
+        let prompt = try #require(harness.describer.requests.first?.userPrompt)
+        #expect(prompt.contains("Rotate keys — password=[PASSWORD] [SECRET_1]"))
+        #expect(!prompt.contains("hunter2"))
+        #expect(!prompt.contains("AIza"))
+        let details = try #require(try harness.descriptions.fetch(captureId: capture.id)?.detailsJson)
+        #expect(details.contains(#""password":1"#))
+        #expect(details.contains(#""secret":1"#))
     }
 
     @Test("a clean frame's details_json gains no redactions key")

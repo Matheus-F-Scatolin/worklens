@@ -625,9 +625,9 @@ public actor DescribeWorker {
         return .answered(projectKey: key, costUSD: response.costUSD)
     }
 
-    /// The prompt fields for one capture, with the window title and the URL taken through
-    /// `TextRedactor` first (#49) — this is the last point before the text leaves the machine.
-    /// The counts ride along so `store` can put them in `details_json`.
+    /// The prompt fields for one capture, with the window title, the URL and the synced meeting's
+    /// title taken through `TextRedactor` first (#49) — this is the last point before the text
+    /// leaves the machine. The counts ride along so `store` can put them in `details_json`.
     private func input(
         for capture: Capture,
         windowText: String?,
@@ -636,8 +636,15 @@ public actor DescribeWorker {
         repairNote: String?
     ) -> (input: DescribePrompt.Input, redactions: [TextRedactor.Kind: Int]) {
         let context = (try? queries.runContext(for: capture)) ?? .empty
-        let title = redactor.redactIfPresent(capture.windowTitle)
-        let url = redactor.redactIfPresent(capture.browserUrl)
+        // The title and the address were redacted when the row was stored (`CaptureStore`), so
+        // the placeholders they already hold are counted too.
+        let title = redactedWithEarlier(capture.windowTitle)
+        let url = redactedWithEarlier(capture.browserUrl)
+        // A calendar or Granola title is typed by whoever sent the invite, and nothing redacted
+        // it on the way in.
+        let meeting = redactor.redactIfPresent(
+            meetingTitle(at: capture.capturedAt, isMeeting: capture.isMeeting)
+        )
         let input = DescribePrompt.Input(
             at: capture.capturedAt,
             appName: capture.appName,
@@ -645,7 +652,7 @@ public actor DescribeWorker {
             windowTitle: title.text,
             url: url.text,
             isMeeting: capture.isMeeting,
-            meetingTitle: meetingTitle(at: capture.capturedAt, isMeeting: capture.isMeeting),
+            meetingTitle: meeting.text,
             context: context,
             repairNote: repairNote,
             windowText: windowText,
@@ -654,7 +661,13 @@ public actor DescribeWorker {
                 hasText: windowText != nil, coverage: coverage, hasImage: hasImage
             )
         )
-        return (input, TextRedactor.merge(title.counts, url.counts))
+        return (input, TextRedactor.merge(TextRedactor.merge(title.counts, url.counts), meeting.counts))
+    }
+
+    private func redactedWithEarlier(_ text: String?) -> (text: String?, counts: [TextRedactor.Kind: Int]) {
+        guard let text else { return (nil, [:]) }
+        let result = redactor.redact(text)
+        return (result.text, result.countsWithPlaceholders)
     }
 
     /// The synced meeting covering this frame, if any (#19). Only looked up for frames the

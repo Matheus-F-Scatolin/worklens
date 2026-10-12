@@ -425,6 +425,15 @@ public enum Migrations {
                 """)
         }
 
+        // Window titles, addresses and context signatures were stored as read, so a credential
+        // in a title was searchable and went out over MCP; the redactor also missed JSON and YAML
+        // credentials, credential assignment names and URL userinfo. Rewrites the stored captures,
+        // block titles, outlines and document addresses, and their search rows, through the
+        // current redactor; no DDL, so an older build still opens the database.
+        migrator.registerMigration("ledger-redact-capture-metadata") { db in
+            try CaptureMetadataRepair.redactStoredMetadata(db)
+        }
+
         return migrator
     }
 }

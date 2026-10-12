@@ -58,18 +58,26 @@ Two consequences worth knowing:
 - **Meeting transcripts never reach a prompt.** A body over 2 000 characters — which is what a
   Granola transcript is — is written to `data/context/<source>/<id>.md` and referenced from the
   database by path. The describe prompt carries at most the title of the meeting a frame falls
-  inside, never its body. (`Context/ContextBody.swift`, `Describe/DescribeWorker.swift`)
+  inside, never its body, and that title goes through the redactor below first.
+  (`Context/ContextBody.swift`, `Describe/DescribeWorker.swift`)
 
-**Credentials and payment data are taken out before anything is sent.** The window title and the
-URL go through one local regex pass (`Privacy/TextRedactor.swift`) on their way into the describe
-prompt, and what it finds is replaced with a placeholder — `[CARD_1]`, `[IBAN_1]`, `[OTP]`,
-`[SECRET_1]`, `[PASSWORD]` — before the request is built. It covers card numbers (13–19 digits that
-also pass the Luhn check), IBANs, one-time codes, API keys and tokens (`sk-…`, `AIza…`, `xoxb-…`,
-`ghp_…`, `AKIA…`, JWTs, `-----BEGIN … PRIVATE KEY-----`, `Bearer …`) and `password=`/`senha=` pairs,
-and it drops the query string and fragment from any web address in the text, with or without
-`https://` in front (an address bar often shows none), while keeping the host and path. The
-focused window's text goes through the same pass before it is stored, so an address bar's query
-is not kept there either, nor in search. What it deliberately
+**Credentials and payment data are taken out before anything is stored or sent.** The window
+title, the URL and the context signature built from them go through one local regex pass
+(`Privacy/TextRedactor.swift`) before the row is written (`Storage/CaptureStore.swift`), so the
+database, search and the MCP tools only ever hold the redacted title; the describe prompt runs the
+same pass again. What it finds is replaced with a placeholder — `[CARD_1]`, `[IBAN_1]`, `[OTP]`,
+`[SECRET_1]`, `[PASSWORD]`. It covers card numbers (13–19 digits that also pass the Luhn check),
+IBANs, one-time codes, API keys and tokens (`sk-…`, `AIza…`, `xoxb-…`, `ghp_…`, `AKIA…`, JWTs,
+`-----BEGIN … PRIVATE KEY-----`, `Bearer …`), password pairs written as `password=`, `senha=`,
+`DB_PASSWORD=`, `password: …` (YAML) or `"password": "…"` (JSON), and the value of a key that
+names a credential, such as `api_key`, `client_secret`, `aws_secret_access_key`, `GITHUB_TOKEN` or
+`"private_key":`, when that value is at least eight characters (so `Token: expired` stays
+readable). It drops the `user:password@` part of any address that has a scheme, and the query
+string and fragment from any web address in the text, with or without `https://` in front (an
+address bar often shows none), while keeping the host and path. The focused window's text goes
+through the same pass before it is stored, so neither is kept there, nor in search. Titles, block
+headings and outlines stored by a build before this pass covered them are rewritten through it
+once, with their search entries, when the database is next opened (`Storage/CaptureMetadataRepair.swift`). What it deliberately
 *keeps* is your own working context: personal names, phone numbers, email addresses, CPFs, CNPJs,
 IP addresses, postal addresses, dates, prices and version numbers. None of those is a credential,
 and a timeline that cannot name the person you were emailing is not worth reading; the blocklists
@@ -103,7 +111,11 @@ client asks for is sent to that client, and that client will normally send it on
 under its own privacy terms — for Claude Desktop, Anthropic's. Nothing is sent until a client asks,
 the server runs only while a client keeps it running, and removing the `worklens` entry from
 `~/Library/Application Support/Claude/claude_desktop_config.json` ends it. Full meeting transcripts
-stay out of this too: `context_events` cuts a body at 400 characters. Since #319 `stats` and `span` also name the documents you had open (a Google file's id, a GitHub PR or issue, a local path with your home folder written as `~`) with their minutes, and `shipped` adds how long each PR's or issue's page was on your screen; both are computed on read from addresses already stored, so erasing a screenshot erases them, and none of it is logged or sent to Gemini. Each Granola meeting also lists the next steps and decisions from its full summary; transcripts are never included. (`MCP/WorklensMCPTools.swift`, `CLI/MCPCommand.swift`)
+stay out of this too: `context_events` cuts a body at 400 characters. A meeting's title, body and
+next steps were typed by somebody else and are stored as synced, so `context_events`, the
+timeline and the blocks built from a meeting put them through the redactor before they are cut or
+returned; `search` redacts the window title and snippet it returns once more, for anything an
+older build stored. Since #319 `stats` and `span` also name the documents you had open (a Google file's id, a GitHub PR or issue, a local path with your home folder written as `~`) with their minutes, and `shipped` adds how long each PR's or issue's page was on your screen; both are computed on read from addresses already stored, so erasing a screenshot erases them, and none of it is logged or sent to Gemini. Each Granola meeting also lists the next steps and decisions from its full summary; transcripts are never included. (`MCP/WorklensMCPTools.swift`, `CLI/MCPCommand.swift`)
 
 Beyond that table there is nothing: no analytics, no crash reporting, no identifier of any kind.
 Every call other than Gemini is one you turned on, and a test in the suite fails the
@@ -130,7 +142,8 @@ build if a new host appears in `Sources/` without a row here
   `Capture/ImagePipeline.swift`)
 - **Metadata about the moment**: the timestamp, which display, the frontmost app's bundle id and
   name, the window title, and — only while `COLLECT_BROWSER_URL=true` — the frontmost browser
-  tab's URL, without its query string or fragment. The address of the document the focused
+  tab's URL, without its query string, its fragment or any `user:password@`. The title, the URL
+  and the context signature are redacted before they are written (see above). The address of the document the focused
   window shows follows the same rule: a web address is stored stripped, whichever app shows it,
   and not at all while `COLLECT_BROWSER_URL=false`; a file open in an editor keeps its path,
   without any `#fragment`. The title
