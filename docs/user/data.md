@@ -12,6 +12,9 @@ data/
   logs/
 ```
 
+The folder and everything in it are readable by your macOS account only: folders are 0700 and
+files 0600, and Worklens tightens anything looser each time it starts.
+
 To wipe everything Worklens knows about you:
 
 ```bash

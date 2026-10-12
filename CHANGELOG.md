@@ -272,6 +272,16 @@ follows from that, and nothing is deleted on upgrade: no table is dropped (`repo
 
 ### Fixed
 
+- **Your data folder and API keys are readable by your account only.** The data folder and every
+  folder in it (screenshots, transcripts, logs) are now 0700, and the database with its `-wal`
+  and `-shm`, each screenshot, each transcript and the log files are 0600, so another account on
+  the Mac cannot read them even when `DATA_DIR` or a checkout sits somewhere it can reach, such
+  as `/Users/Shared`. Files an earlier build left readable are made private when the app starts.
+  `setup.sh` creates a checkout's `.env` as 0600 and makes an existing one 0600, and
+  `install-env.sh` does the same to the `.env` it reads from.
+- **A huge number no longer stops the MCP server.** A tool call such as `days` with
+  `{"limit":1e100}` used to end `worklens mcp`; it now answers "limit must be a whole number"
+  like any other bad argument, and the server keeps running.
 - **A fresh one-line install keeps its data in Application Support, not in the git checkout.**
   `setup.sh --yes` no longer copies `.env.example` into the clone, and `scripts/launch.sh` never
   points an installed app at a checkout's `.env`, so the first launch writes the app's own

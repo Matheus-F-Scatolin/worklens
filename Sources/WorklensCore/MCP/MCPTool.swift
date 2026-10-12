@@ -174,7 +174,14 @@ public extension JSONValue {
 
     func optionalInt(_ key: String) throws -> Int? {
         guard let value = self[key], !value.isNull else { return nil }
-        if let number = value.intValue { return number }
+        if let number = value.numberValue {
+            // `Int(exactly:)` is nil for 2.5, NaN, infinity and 1e100: each is an argument error,
+            // never a trap that takes the server down.
+            guard number.isFinite, let whole = Int(exactly: number) else {
+                throw MCPToolError("\(key) must be a whole number")
+            }
+            return whole
+        }
         if let text = value.stringValue, let number = Int(text) { return number }
         throw MCPToolError("\(key) must be a whole number")
     }

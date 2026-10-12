@@ -62,10 +62,8 @@ public enum ContextBody {
     ) throws -> String {
         let relative = relativePath(source: source, externalId: externalId)
         let url = config.dataDir.appendingPathComponent(relative)
-        try FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(), withIntermediateDirectories: true
-        )
-        try Data(markdown.utf8).write(to: url, options: .atomic)
+        try FilePermissions.createPrivateDirectory(at: url.deletingLastPathComponent())
+        try FilePermissions.writePrivate(Data(markdown.utf8), to: url)
         return relative
     }
 

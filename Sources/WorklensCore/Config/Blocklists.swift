@@ -298,7 +298,7 @@ public struct BlocklistStore: Sendable {
     private func write(_ overlay: BlocklistOverlay) throws {
         let directory = url.deletingLastPathComponent()
         do {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try FilePermissions.createPrivateDirectory(at: directory)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             var data = try encoder.encode(overlay)

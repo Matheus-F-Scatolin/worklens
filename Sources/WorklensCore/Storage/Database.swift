@@ -41,8 +41,9 @@ public final class Database: Sendable {
     /// about it. Nothing is deleted — a corrupt database is still the only copy of a history,
     /// and `sqlite3 .recover` on it later is a real option.
     public init(dataDir: URL) throws {
-        try FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
+        try FilePermissions.createPrivateDirectory(at: dataDir)
         let url = dataDir.appendingPathComponent("worklens.sqlite")
+        Database.preparePrivateFiles(url)
         do {
             let pool = try DatabasePool(path: url.path, configuration: Database.configuration())
             try Migrations.migrator.migrate(pool)
@@ -53,6 +54,7 @@ public final class Database: Sendable {
             let detail = (error as? DatabaseError)?.description ?? "\(error)"
             let movedTo = try Database.setAside(url)
             Log.storage.error("database unusable (\(detail)); moved to \(movedTo.lastPathComponent)")
+            Database.preparePrivateFiles(url)
             let pool = try DatabasePool(path: url.path, configuration: Database.configuration())
             try Migrations.migrator.migrate(pool)
             self.writer = pool
@@ -85,6 +87,15 @@ public final class Database: Sendable {
         configuration.busyMode = .timeout(5)
         configuration.foreignKeysEnabled = true
         return Database(readOnly: try DatabaseQueue(path: url.path, configuration: configuration))
+    }
+
+    /// 0600 on the database before SQLite opens it, so the `-wal` and `-shm` it creates take the
+    /// same mode, and on sidecars an earlier build left readable.
+    private static func preparePrivateFiles(_ url: URL) {
+        FilePermissions.preparePrivateFile(at: url)
+        for suffix in ["-wal", "-shm"] {
+            FilePermissions.restrict(URL(fileURLWithPath: url.path + suffix))
+        }
     }
 
     /// Renames `worklens.sqlite` and its sidecars out of the way, returning where the main file

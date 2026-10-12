@@ -55,7 +55,7 @@ public final class FileLog: @unchecked Sendable {
         directory = url
         lock.unlock()
 
-        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        try? FilePermissions.createPrivateDirectory(at: url)
         let pruned = prune(directory: url)
 
         // A CLI process exits through `exit()` inside ArgumentParser's `main()`, so there is no
@@ -157,7 +157,7 @@ public final class FileLog: @unchecked Sendable {
             _ = try? handle.seekToEnd()
             try? handle.write(contentsOf: data)
         } else {
-            try? data.write(to: url, options: .atomic)
+            try? FilePermissions.writePrivate(data, to: url)
         }
     }
 

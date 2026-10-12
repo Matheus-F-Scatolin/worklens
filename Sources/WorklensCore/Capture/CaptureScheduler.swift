@@ -849,7 +849,7 @@ public final class CaptureScheduler: ObservableObject {
             let overBudget = !(await costGate.allows(.describe))
             if let processed, let jpeg = processed.jpeg {
                 let url = try ScreenshotPaths.url(for: row.capturedAt, id: row.id, dataDir: config.dataDir)
-                try jpeg.write(to: url, options: .atomic)
+                try FilePermissions.writePrivate(jpeg, to: url)
                 row.imagePath = ScreenshotPaths.relativePath(for: row.capturedAt, id: row.id)
                 row.width = processed.width
                 row.height = processed.height

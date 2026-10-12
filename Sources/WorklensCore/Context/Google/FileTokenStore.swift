@@ -40,7 +40,7 @@ public struct FileTokenStore: GoogleTokenStore {
     public func save(_ tokens: GoogleAuth.Tokens) throws {
         let data = try JSONEncoder.google.encode(tokens)
         let directory = url.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try FilePermissions.createPrivateDirectory(at: directory)
 
         let temporary = directory.appendingPathComponent(".\(Self.fileName).\(UUID().uuidString)")
         guard FileManager.default.createFile(

@@ -52,7 +52,13 @@ public extension JSONValue {
     var arrayValue: [JSONValue]? { if case let .array(v) = self { return v } else { return nil } }
     var stringValue: String? { if case let .string(v) = self { return v } else { return nil } }
     var numberValue: Double? { if case let .number(v) = self { return v } else { return nil } }
-    var intValue: Int? { numberValue.map(Int.init) }
+    /// The number truncated toward zero, or nil when it is not a number or does not fit an `Int`.
+    /// `Int(Double)` traps on NaN, infinity and anything past `Int.max`, and these values come
+    /// from the outside (an MCP client, an HTTP response), so the conversion is failable.
+    var intValue: Int? {
+        guard let number = numberValue, number.isFinite else { return nil }
+        return Int(exactly: number.rounded(.towardZero))
+    }
     var boolValue: Bool? { if case let .bool(v) = self { return v } else { return nil } }
     var isNull: Bool { if case .null = self { return true } else { return false } }
 

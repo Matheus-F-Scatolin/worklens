@@ -446,6 +446,13 @@ final class AppModel: ObservableObject {
     private func buildServices() {
         do {
             let db = try Database(dataDir: config.dataDir)
+            // Owner-only modes on everything an older build or the umask left readable: a stat
+            // per file, so off the main thread.
+            let dataDir = config.dataDir
+            Task.detached(priority: .utility) {
+                let changed = FilePermissions.tightenTree(at: dataDir)
+                if changed > 0 { Log.storage.info("made \(changed) data file(s) private to this account") }
+            }
             let taxonomy = try TaxonomyStore(dataDir: config.dataDir)
             // #312: apps a later seed added, merged once, before anything resolves a frame.
             do {

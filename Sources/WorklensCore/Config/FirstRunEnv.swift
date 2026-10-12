@@ -11,14 +11,19 @@ public enum FirstRunEnv {
     ///
     /// Returns `url` when it wrote the file and nil when one was already there. The file is
     /// 0600 (it is where API keys go) and a directory this creates is 0700; an existing
-    /// directory's mode is left alone, since it is not ours to change.
+    /// directory's mode is left alone, since it is not ours to change. An existing file loses
+    /// any group or other bits it had.
     @discardableResult
     public static func createIfMissing(
         at url: URL = Config.appSupportEnvURL(),
         contents: String = EnvTemplate.text
     ) throws -> URL? {
         let fm = FileManager.default
-        guard !fm.fileExists(atPath: url.path) else { return nil }
+        guard !fm.fileExists(atPath: url.path) else {
+            // An existing one may predate this rule; the keys in it are no less secret.
+            FilePermissions.restrict(url)
+            return nil
+        }
         let directory = url.deletingLastPathComponent()
         if !fm.fileExists(atPath: directory.path) {
             try fm.createDirectory(

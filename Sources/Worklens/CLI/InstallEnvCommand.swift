@@ -138,7 +138,6 @@ struct InstallEnvCommand: ParsableCommand {
                 attributes: [.posixPermissions: 0o700]
             )
         }
-        try text.write(to: url, atomically: true, encoding: .utf8)
-        try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        try FilePermissions.writePrivate(Data(text.utf8), to: url)
     }
 }

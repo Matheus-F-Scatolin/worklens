@@ -6,7 +6,7 @@ public enum ScreenshotPaths {
     /// The absolute URL for a frame, creating the day folder if needed.
     public static func url(for date: Date, id: String, dataDir: URL, timeZone: TimeZone = .current) throws -> URL {
         let directory = directory(for: date, dataDir: dataDir, timeZone: timeZone)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try FilePermissions.createPrivateDirectory(at: directory)
         return directory.appendingPathComponent(filename(for: date, id: id, timeZone: timeZone))
     }
 

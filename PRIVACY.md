@@ -239,6 +239,11 @@ data/
 
 `data/` is git-ignored. `rm -rf data` deletes everything Worklens knows about you.
 
+**Only your account can read it.** Worklens makes `DATA_DIR` and every folder in it 0700 and the
+files it writes there 0600 (the database and its `-wal` and `-shm`, screenshots, transcripts,
+logs), and at each launch it takes group and other access off anything an earlier build left
+readable (`Util/FilePermissions.swift`). A checkout's `.env` is 0600 from `setup.sh` on.
+
 **It has to be a folder on this Mac's own disk.** If `DATA_DIR` is inside iCloud Drive, Dropbox,
 Google Drive, OneDrive, `~/Library/CloudStorage`, or on a volume that is not local, Worklens does
 not capture into it: a file provider can sync the SQLite write-ahead log out from under an open

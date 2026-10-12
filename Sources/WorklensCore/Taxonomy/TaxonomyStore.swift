@@ -41,7 +41,7 @@ public final class TaxonomyStore: @unchecked Sendable {
         self.now = now
 
         if !FileManager.default.fileExists(atPath: fileURL.path) {
-            try FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
+            try FilePermissions.createPrivateDirectory(at: dataDir)
             // Written verbatim rather than re-encoded, so the file matches the embedded seed byte
             // for byte and a diff against a later version shows only the user's own edits.
             try Data(TaxonomySeed.json.utf8).write(to: fileURL, options: .atomic)

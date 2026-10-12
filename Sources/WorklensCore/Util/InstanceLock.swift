@@ -35,9 +35,9 @@ public final class InstanceLock {
 
     /// Takes the lock, or returns nil when another process holds it.
     public static func acquire(dataDir: URL) -> InstanceLock? {
-        try? FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
+        try? FilePermissions.createPrivateDirectory(at: dataDir)
         let url = dataDir.appendingPathComponent(InstanceLock.fileName)
-        let descriptor = open(url.path, O_CREAT | O_RDWR, 0o644)
+        let descriptor = open(url.path, O_CREAT | O_RDWR, 0o600)
         guard descriptor >= 0 else {
             Log.storage.warn("could not open \(InstanceLock.fileName) in the data directory")
             return InstanceLock(descriptor: -1, url: url, isHeld: false)

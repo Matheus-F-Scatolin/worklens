@@ -165,9 +165,12 @@ if (( LINK_CHECKOUT == 0 )) && [[ ! -f "$REPO/.env" ]]; then
   detail "asks for the Gemini key"
 elif [[ -f "$REPO/.env" ]]; then
   detail "$REPO/.env exists"
+  # It holds the API key: owner-only, whatever mode an earlier copy or editor left it with.
+  run chmod 600 "$REPO/.env"
 else
   detail "creating $REPO/.env from .env.example"
-  run cp "$REPO/.env.example" "$REPO/.env"
+  # 0600 from the start (`install -m`), not a copy of the example's 0644 that a key goes into.
+  run install -m 600 "$REPO/.env.example" "$REPO/.env"
 fi
 
 # Read with grep rather than sourcing the file: a .env is data, and a stray backtick in a value

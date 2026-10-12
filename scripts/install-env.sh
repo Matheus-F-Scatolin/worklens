@@ -56,6 +56,8 @@ if [[ ! -f "$CHECKOUT/.env" ]]; then
   echo "error: no .env in $CHECKOUT (cp .env.example .env)" >&2
   exit 1
 fi
+# The checkout's .env holds the API key too: owner-only, like the copy this installs.
+chmod 600 "$CHECKOUT/.env"
 
 # A checkout's own build first — the point of the command is to install *this* checkout's
 # configuration, and an older `worklens` on PATH may not have the subcommand at all.

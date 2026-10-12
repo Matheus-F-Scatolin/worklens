@@ -338,3 +338,52 @@ struct MCPServerIconTests {
         #expect(Data(base64Encoded: MCPServerIcon.base64) == png)
     }
 }
+
+/// An out-of-range number is an argument error, never a trap that ends `worklens mcp`.
+@Suite("MCP numeric arguments")
+struct MCPNumericArgumentTests {
+    private func limitServer() -> MCPServer {
+        MCPServer(registry: MCPToolRegistry([
+            MCPTool(
+                name: "days",
+                description: "Reads a bounded limit.",
+                inputSchema: .object(["type": "object", "properties": .object([:])])
+            ) { arguments in
+                "limit \(try arguments.int("limit", default: 7, range: 1...90))"
+            },
+        ]), version: "test")
+    }
+
+    private func call(_ arguments: String) throws -> JSONValue {
+        try decode(limitServer().handle(line: request(1, "tools/call", #"{"name":"days","arguments":\#(arguments)}"#)))
+    }
+
+    @Test("{\"limit\":1e100} answers with the tool's error and the server keeps going")
+    func hugeLimit() throws {
+        let response = try call(#"{"limit":1e100}"#)
+        #expect(response["error"] == nil)
+        #expect(response["result"]?["isError"]?.boolValue == true)
+        #expect(response["result"]?["content"]?[0]?["text"]?.stringValue == "limit must be a whole number")
+        #expect(try call(#"{"limit":-1e300}"#)["result"]?["isError"]?.boolValue == true)
+    }
+
+    @Test("negative, fractional and in-range limits")
+    func boundedLimits() throws {
+        #expect(try call(#"{"limit":-5}"#)["result"]?["content"]?[0]?["text"]?.stringValue == "limit must be between 1 and 90")
+        #expect(try call(#"{"limit":2.5}"#)["result"]?["content"]?[0]?["text"]?.stringValue == "limit must be a whole number")
+        #expect(try call(#"{"limit":20}"#)["result"]?["content"]?[0]?["text"]?.stringValue == "limit 20")
+        #expect(try call(#"{"limit":"20"}"#)["result"]?["content"]?[0]?["text"]?.stringValue == "limit 20")
+        #expect(try call(#"{"limit":"1e100"}"#)["result"]?["isError"]?.boolValue == true)
+    }
+
+    @Test("NaN, infinity and past-Int.max numbers neither trap nor convert")
+    func nonFiniteNumbers() {
+        for number in [Double.nan, .infinity, -.infinity, 1e100, Double(Int.max) * 2] {
+            let arguments: JSONValue = .object(["limit": .number(number)])
+            #expect(throws: MCPToolError.self) { try arguments.optionalInt("limit") }
+            #expect(JSONValue.number(number).intValue == nil)
+        }
+        #expect(JSONValue.number(42.9).intValue == 42)
+        #expect(JSONValue.number(-3).intValue == -3)
+    }
+}
