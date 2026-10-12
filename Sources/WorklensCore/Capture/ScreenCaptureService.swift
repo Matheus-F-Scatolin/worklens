@@ -210,6 +210,19 @@ public enum CaptureRevalidation {
         guard let capturedWindowID, capturedWindowID == currentWindowID else { return false }
         return contextStillValid(before: before, after: after, policy: policy)
     }
+
+    /// The path half: nothing was switched, focused, retitled or loaded between the two marks,
+    /// so the ends being equal also means the middle was. Comparing the ends alone lets an
+    /// allowed tab → blocked tab → allowed tab round trip through. Fails closed: no mark, a
+    /// watcher that could not watch `pid`, or a mark about another app all drop the frame.
+    public static func nothingMoved(
+        before: FocusChangeMark?, after: FocusChangeMark?, pid: pid_t
+    ) -> Bool {
+        guard let before, let after else { return false }
+        guard before.generation == after.generation else { return false }
+        guard before.pid == pid, after.pid == pid else { return false }
+        return before.reach != .blind && after.reach != .blind
+    }
 }
 
 // MARK: - Service

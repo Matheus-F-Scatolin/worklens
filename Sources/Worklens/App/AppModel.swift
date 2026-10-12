@@ -482,11 +482,17 @@ final class AppModel: ObservableObject {
             // the sleep, and two sets of observers for the same notifications would be two
             // answers to one question.
             let system = SystemStateMonitor()
+            // Counts every switch and title change, so a blocked tab opened and closed again
+            // inside one capture is noticed although both ends of it look the same. Started
+            // before the scheduler: until it runs, no frame is kept.
+            let focusChanges = FocusChangeMonitor()
+            focusChanges.start()
             let scheduler = CaptureScheduler(
                 config: config,
                 db: db,
                 capture: capture,
                 context: ForegroundContextCollector(config: config),
+                focusChanges: focusChanges,
                 meeting: meeting,
                 system: system,
                 costGate: cost,

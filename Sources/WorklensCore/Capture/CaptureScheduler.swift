@@ -195,6 +195,9 @@ public final class CaptureScheduler: ObservableObject {
     private let database: Database
     private let capture: any ScreenCapturing
     private let context: any ForegroundContextProviding
+    /// Every app switch and front-window, focus and title change, counted, so a round trip
+    /// during a capture is noticed even though both ends look the same.
+    private let focusChanges: any FocusChangeObserving
     private let meeting: MeetingDetector
     private let system: any SystemStateProviding
     private let costGate: any CostGate
@@ -241,6 +244,7 @@ public final class CaptureScheduler: ObservableObject {
         db: Database,
         capture: any ScreenCapturing,
         context: any ForegroundContextProviding,
+        focusChanges: any FocusChangeObserving,
         meeting: MeetingDetector,
         // Defaulted to nil rather than to a SystemStateMonitor: default arguments are
         // evaluated at the call site, which is not the main actor.
@@ -257,6 +261,7 @@ public final class CaptureScheduler: ObservableObject {
         self.axSnapshots = AXSnapshotStore(db)
         self.capture = capture
         self.context = context
+        self.focusChanges = focusChanges
         self.meeting = meeting
         self.system = system ?? SystemStateMonitor()
         self.costGate = costGate
@@ -564,6 +569,9 @@ public final class CaptureScheduler: ObservableObject {
         // 4. Context — cheap, and needed even by the paths that never take a picture. #55: the
         // collector resolves the focused window on the way, and the walk below reuses it, so the
         // whole tick creates one application element and looks the focused window up once.
+        // The change count is read first, so a switch that lands while the context is being
+        // read is counted against this tick rather than slipping in before it.
+        let focusBefore = focusChanges.mark()
         let reading = context.collectWithHeader()
         let ctx = reading.context
         meeting.update(context: ctx)
@@ -663,9 +671,12 @@ public final class CaptureScheduler: ObservableObject {
             }
             // The walk was asynchronous too: keep its text only if the same window is still in
             // front and still allowed (security finding #1).
-            guard CaptureRevalidation.contextStillValid(
-                before: ctx, after: context.collect(), policy: privacy
-            ) else {
+            let after = context.collect()
+            guard CaptureRevalidation.contextStillValid(before: ctx, after: after, policy: privacy),
+                  CaptureRevalidation.nothingMoved(
+                      before: focusBefore, after: focusChanges.mark(), pid: ctx.pid
+                  )
+            else {
                 return focusChangedTick(ctx, startedAt: startedAt)
             }
             if state != .running {
@@ -735,7 +746,12 @@ public final class CaptureScheduler: ObservableObject {
         } else {
             stillValid = CaptureRevalidation.contextStillValid(before: ctx, after: after, policy: privacy)
         }
-        guard stillValid else { return focusChangedTick(ctx, startedAt: startedAt) }
+        // The ends matching is not enough: a blocked tab opened and closed again inside the
+        // capture leaves both ends equal. Anything counted in between drops the tick too.
+        let nothingMoved = CaptureRevalidation.nothingMoved(
+            before: focusBefore, after: focusChanges.mark(), pid: ctx.pid
+        )
+        guard stillValid, nothingMoved else { return focusChangedTick(ctx, startedAt: startedAt) }
 
         guard let frame = captured else {
             // No window to photograph on its own. The window text, if the walk found any, is

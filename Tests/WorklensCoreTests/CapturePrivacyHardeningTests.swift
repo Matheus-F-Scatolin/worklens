@@ -85,6 +85,39 @@ struct CaptureRevalidationTests {
         )
     }
 
+    @Test("The change count: kept only when nothing moved and the watcher could watch")
+    func nothingMoved() {
+        let mark = FocusChangeMark(generation: 4, pid: 1, reach: .full)
+        #expect(CaptureRevalidation.nothingMoved(before: mark, after: mark, pid: 1))
+
+        // There and back again: the ends match, the count does not.
+        var moved = mark
+        moved.generation = 6
+        #expect(!CaptureRevalidation.nothingMoved(before: mark, after: moved, pid: 1))
+
+        // Fails closed on a missing mark, a blind watcher, or a mark about another app.
+        #expect(!CaptureRevalidation.nothingMoved(before: nil, after: mark, pid: 1))
+        #expect(!CaptureRevalidation.nothingMoved(before: mark, after: nil, pid: 1))
+        var blind = mark
+        blind.reach = .blind
+        #expect(!CaptureRevalidation.nothingMoved(before: blind, after: mark, pid: 1))
+        #expect(!CaptureRevalidation.nothingMoved(before: mark, after: blind, pid: 1))
+        #expect(!CaptureRevalidation.nothingMoved(before: mark, after: mark, pid: 2))
+        var otherApp = mark
+        otherApp.pid = 2
+        #expect(!CaptureRevalidation.nothingMoved(before: otherApp, after: mark, pid: 1))
+
+        // Without Accessibility only app switches are heard; an unchanged count still passes.
+        var switchesOnly = mark
+        switchesOnly.reach = .activationsOnly
+        #expect(CaptureRevalidation.nothingMoved(before: switchesOnly, after: switchesOnly, pid: 1))
+    }
+
+    @Test("The live monitor marks nothing until it is started")
+    func monitorFailsClosedBeforeStart() {
+        #expect(FocusChangeMonitor().mark() == nil)
+    }
+
     @Test("Same window, same app, still allowed: the screenshot is kept")
     func unchanged() {
         #expect(valid(terminal))

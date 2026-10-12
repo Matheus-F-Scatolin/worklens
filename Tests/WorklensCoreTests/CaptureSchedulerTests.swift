@@ -99,6 +99,28 @@ private final class FakeContext: ForegroundContextProviding, @unchecked Sendable
     func collect() -> ForegroundContext { current }
 }
 
+/// A change counter the test moves by hand: `bump()` is one switch, focus or title change heard.
+/// Watches whatever pid the context says is in front, which is what the live monitor does.
+private final class FakeFocusChanges: FocusChangeObserving, @unchecked Sendable {
+    private let lock = NSLock()
+    private var generation: UInt64 = 0
+    private var reach: FocusChangeMark.Reach = .full
+    private var watching = true
+    private let context: FakeContext
+
+    init(context: FakeContext) { self.context = context }
+
+    func bump() { lock.lock(); generation &+= 1; lock.unlock() }
+    func setReach(_ value: FocusChangeMark.Reach) { lock.lock(); reach = value; lock.unlock() }
+    func setWatching(_ value: Bool) { lock.lock(); watching = value; lock.unlock() }
+
+    func mark() -> FocusChangeMark? {
+        lock.lock(); defer { lock.unlock() }
+        guard watching else { return nil }
+        return FocusChangeMark(generation: generation, pid: context.current.pid, reach: reach)
+    }
+}
+
 /// Hands back solid-gray frames: two calls with the same gray look identical to `changeScore`,
 /// two with different grays look completely different.
 private final class FakeCapture: ScreenCapturing, @unchecked Sendable {
@@ -206,10 +228,20 @@ private final class FakeSnapshotter: AccessibilitySnapshotting, @unchecked Senda
         lock.unlock()
     }
 
+    /// Runs inside the walk, before it returns: how a test switches tab mid-walk.
+    private var duringSnapshot: (@Sendable () -> Void)?
+    func setDuringSnapshot(_ body: (@Sendable () -> Void)?) {
+        lock.lock(); duringSnapshot = body; lock.unlock()
+    }
+
     func snapshot(pid: pid_t) async -> AXSnapshot? {
-        lock.lock(); defer { lock.unlock() }
+        lock.lock()
         pids.append(pid)
-        return next
+        let result = next
+        let during = duringSnapshot
+        lock.unlock()
+        during?()
+        return result
     }
 
     func resetEnhancedUserInterface(pid: pid_t) async {
@@ -228,6 +260,7 @@ private struct Harness {
     let store: CaptureStore
     let system: FakeSystemState
     let context: FakeContext
+    let focusChanges: FakeFocusChanges
     let capture: FakeCapture
     let clock: FakeClockDate
     let dataDir: URL
@@ -259,6 +292,7 @@ private struct Harness {
         store = CaptureStore(db)
         system = FakeSystemState()
         self.context = FakeContext(context)
+        focusChanges = FakeFocusChanges(context: self.context)
         self.capture = capture
         clock = existingClock ?? FakeClockDate()
         self.snapshotter = snapshotter
@@ -270,6 +304,7 @@ private struct Harness {
             db: db,
             capture: capture,
             context: self.context,
+            focusChanges: focusChanges,
             meeting: meeting,
             system: system,
             costGate: costGate,
@@ -1299,7 +1334,7 @@ struct CaptureSchedulerTests {
             }(),
             db: harness.db,
             capture: harness.capture,
-            context: harness.context,
+            context: harness.context, focusChanges: harness.focusChanges,
             meeting: MeetingDetector(),
             system: harness.system,
             clock: InstantClock(),
@@ -1326,7 +1361,7 @@ struct CaptureSchedulerTests {
         var config = Config.defaults()
         config.dataDir = harness.dataDir
         let restarted = CaptureScheduler(
-            config: config, db: harness.db, capture: harness.capture, context: harness.context,
+            config: config, db: harness.db, capture: harness.capture, context: harness.context, focusChanges: harness.focusChanges,
             meeting: MeetingDetector(), system: harness.system,
             clock: InstantClock(), now: { harness.clock.now }
         )
@@ -1618,7 +1653,7 @@ struct CaptureSchedulerAXTests {
             }(),
             db: harness.db,
             capture: harness.capture,
-            context: harness.context,
+            context: harness.context, focusChanges: harness.focusChanges,
             meeting: harness.meeting,
             system: harness.system,
             snapshotter: snapshotter,
@@ -2032,7 +2067,7 @@ struct CoverageTransitionTests {
             config: config,
             db: harness.db,
             capture: FakeCapture(),
-            context: harness.context,
+            context: harness.context, focusChanges: harness.focusChanges,
             meeting: harness.meeting,
             system: FakeSystemState(),
             clock: ParkedClock(),
@@ -2059,6 +2094,92 @@ struct CaptureSchedulerFocusedWindowTests {
 
         #expect(await harness.scheduler.tick().decision == .describedPending)
         #expect(harness.capture.capturedPids == [1])
+    }
+
+    // The A→B→A race: an allowed tab, a blocked tab while the picture is taken, then the allowed
+    // tab again before the revalidation. Both ends are identical, so only the count catches it.
+    private static let docsTab = ForegroundContext(
+        bundleID: "com.google.Chrome", appName: "Chrome", pid: 3, windowTitle: "Docs"
+    )
+    private static let bankTab = ForegroundContext(
+        bundleID: "com.google.Chrome", appName: "Chrome", pid: 3, windowTitle: "My Bank"
+    )
+
+    @Test("A blocked tab and back again during the capture: nothing is kept")
+    func roundTripThroughBlockedTabMidCapture() async throws {
+        let capture = FakeCapture()
+        let harness = try Harness(
+            configure: { $0.blockedTitlePatterns = ["(?i)bank"] },
+            capture: capture, context: Self.docsTab
+        )
+        defer { harness.cleanUp() }
+        let context = harness.context
+        let focus = harness.focusChanges
+        capture.setDuringCapture {
+            context.current = Self.bankTab
+            focus.bump()
+            context.current = Self.docsTab
+            focus.bump()
+        }
+
+        let result = await harness.scheduler.tick()
+        #expect(result.decision == .focusChanged)
+        #expect(result.savedImage == false)
+        #expect(try harness.rows().isEmpty)
+        #expect(try harness.jpegCount() == 0)
+    }
+
+    @Test("Nothing moved during the capture: the frame is kept")
+    func unchangedWindowIsKept() async throws {
+        let harness = try Harness(
+            configure: { $0.blockedTitlePatterns = ["(?i)bank"] }, context: Self.docsTab
+        )
+        defer { harness.cleanUp() }
+
+        let result = await harness.scheduler.tick()
+        #expect(result.decision == .describedPending)
+        #expect(result.savedImage)
+        #expect(try harness.rows().count == 1)
+        #expect(try harness.jpegCount() == 1)
+    }
+
+    @Test("A blocked tab and back again during the text-only walk: nothing is kept")
+    func roundTripThroughBlockedTabMidWalk() async throws {
+        let snapshotter = FakeSnapshotter(FakeSnapshotter.snapshot(coverage: .full, text: "hello"))
+        let harness = try Harness(
+            configure: {
+                $0.blockedTitlePatterns = ["(?i)bank"]
+                $0.captureSource = .accessibility
+            },
+            context: Self.docsTab, snapshotter: snapshotter
+        )
+        defer { harness.cleanUp() }
+        let context = harness.context
+        let focus = harness.focusChanges
+        snapshotter.setDuringSnapshot {
+            context.current = Self.bankTab
+            focus.bump()
+            context.current = Self.docsTab
+            focus.bump()
+        }
+
+        #expect(await harness.scheduler.tick().decision == .focusChanged)
+        #expect(try harness.rows().isEmpty)
+        #expect(try harness.axRows().isEmpty)
+    }
+
+    @Test("A watcher that cannot vouch for the window: nothing is kept")
+    func unwatchedWindowFailsClosed() async throws {
+        let harness = try Harness()
+        defer { harness.cleanUp() }
+
+        harness.focusChanges.setReach(.blind)
+        #expect(await harness.scheduler.tick().decision == .focusChanged)
+        harness.focusChanges.setReach(.full)
+        harness.focusChanges.setWatching(false)
+        #expect(await harness.scheduler.tick().decision == .focusChanged)
+        #expect(try harness.rows().isEmpty)
+        #expect(try harness.jpegCount() == 0)
     }
 
     @Test("Another window comes to the front during the capture: nothing is kept")
