@@ -118,8 +118,14 @@ public struct TextRedactor: Sendable {
         for (order, rule) in rules.enumerated() {
             rule.regex.enumerateMatches(in: text, options: [], range: whole) { match, _, _ in
                 guard let match else { return }
-                let group = rule.group < match.numberOfRanges ? rule.group : 0
-                let range = match.range(at: group)
+                let range: NSRange
+                if let resolve = rule.resolve {
+                    guard let resolved = resolve(match, ns) else { return }
+                    range = resolved
+                } else {
+                    let group = rule.group < match.numberOfRanges ? rule.group : 0
+                    range = match.range(at: group)
+                }
                 guard range.location != NSNotFound, range.length > 0 else { return }
                 let value = ns.substring(with: range)
                 if let validate = rule.validate, !validate(value) { return }
@@ -307,17 +313,23 @@ public struct TextRedactor: Sendable {
         /// its key and replaces only the value.
         let group: Int
         let validate: (@Sendable (String) -> Bool)?
+        /// Picks the span to replace from the whole match, or `nil` to skip it. Used where the
+        /// decision needs the surrounding text: a YAML block scalar's indented lines, or the word
+        /// after a value that tells prose from a credential.
+        let resolve: (@Sendable (NSTextCheckingResult, NSString) -> NSRange?)?
 
         init(
             kind: Kind,
             regex: NSRegularExpression,
             group: Int = 0,
-            validate: (@Sendable (String) -> Bool)? = nil
+            validate: (@Sendable (String) -> Bool)? = nil,
+            resolve: (@Sendable (NSTextCheckingResult, NSString) -> NSRange?)? = nil
         ) {
             self.kind = kind
             self.regex = regex
             self.group = group
             self.validate = validate
+            self.resolve = resolve
         }
     }
 
@@ -332,14 +344,15 @@ public struct TextRedactor: Sendable {
     private static let builtInRules: [Rule] = [
         // --- Passwords: the key stays, the value goes. Before the card rule, so
         // `senha=4111111111111111` reads `[PASSWORD]` rather than `[CARD_1]`. The key may carry
-        // an identifier prefix (`DB_PASSWORD`, `new-password`) and quotes (`"password":"x"`), and
-        // be followed by `=` or by a colon on the same line (`password: x` in YAML or JSON).
+        // an identifier prefix (`DB_PASSWORD`, `new-password`, `dbPassword`) and quotes
+        // (`"password":"x"`), and be followed by `=` or by a colon on the same line (`password: x`
+        // in YAML or JSON). `credentialValue` decides what goes; see there.
         // Every rule here starts at its keyword, not at the start of the identifier: a pattern
         // that opens with a literal is what keeps a 3 000-character outline inside its budget.
         Rule(
             kind: .password,
-            regex: rx(#"(?<![A-Za-z0-9])(?:password|passphrase|senha|pwd|passwd)["']?[ \t]*[:=][ \t]*("[^"\n]{1,200}"|'[^'\n]{1,200}'|[^\s&;,}"'\n]{1,200})"#, [.caseInsensitive]),
-            group: 1
+            regex: rx(keyStart + #"(password|passphrase|passwd|senha|pwd)"# + assignmentTail, [.caseInsensitive]),
+            resolve: { credentialValue($0, in: $1, alwaysCredential: true) }
         ),
         // The password inside a URL's userinfo, `scheme://user:password@host`. The whole
         // userinfo is dropped (`urlQueryRanges`); this row is what counts it.
@@ -349,16 +362,21 @@ public struct TextRedactor: Sendable {
             group: 1
         ),
 
-        // --- Credential assignments: a key that ends in a word naming a secret (`api_key`,
-        // `client_secret`, `aws_secret_access_key`, `GITHUB_TOKEN`, `"private_key":`), then `=`
-        // or a colon, then a
-        // value of at least eight characters. The floor is what keeps prose like `Token: expired`
-        // or `secret: no` readable; a credential is never that short. A value that is already a
-        // placeholder is left alone, so redacting twice changes nothing.
+        // --- Credential assignments: a key that names a secret (`api_key`, `client_secret`,
+        // `awsSecretAccessKey`, `GITHUB_TOKEN`, `"private_key":`), then `=` or a colon, then a
+        // value. A bare `secret`, `token` or `credentials` on its own is a common English word,
+        // so with a colon and an unquoted value it needs a value that looks like a secret (see
+        // `credentialValue`). A value that is already a placeholder is left alone, so redacting
+        // twice changes nothing.
         Rule(
             kind: .secret,
-            regex: rx(#"(?<![A-Za-z0-9])(?:secret|secret[_-]?key|token|api[_-]?key|private[_-]?key|access[_-]?key|credentials?)["']?[ \t]*[:=][ \t]*(?!\[[A-Z]+(?:_[0-9]+)?\])("[^"\n]{8,}"|'[^'\n]{8,}'|[^\s&;,}"'\n]{8,})"#, [.caseInsensitive]),
-            group: 1
+            regex: rx(
+                keyStart
+                    + #"(secret[_-]?access[_-]?key|(?:secret|access|api|private|signing|encryption|master)[_-]?key|secret|token|credentials?)"#
+                    + assignmentTail,
+                [.caseInsensitive]
+            ),
+            resolve: { credentialValue($0, in: $1, alwaysCredential: false) }
         ),
 
         // --- Secret shapes.
@@ -410,6 +428,131 @@ public struct TextRedactor: Sendable {
             group: 1
         ),
     ]
+
+    // MARK: - Credential assignments
+
+    /// Where a credential key may start: after a non-alphanumeric, or at a camelCase hump
+    /// (`aws|Secret`, `client|Secret`, `access|Token`).
+    private static let keyStart = #"(?:(?<![A-Za-z0-9])|(?-i:(?<=[a-z0-9])(?=[A-Z])))"#
+
+    /// After the keyword (group 1): the key's closing quote (group 2), the separator (group 3)
+    /// and the value (group 4) — double- or single-quoted with backslash escapes honoured (an
+    /// unterminated quote runs to the end of the line), or a bare run up to whitespace or `&;,}`.
+    private static let assignmentTail =
+        #"(["']?)[ \t]*([:=])[ \t]*(?!\[[A-Z]+(?:_[0-9]+)?\])("(?:[^"\\\n]|\\.){1,200}+"?|'(?:[^'\\\n]|\\.){1,200}+'?|[^\s&;,}"'\n]{1,200})"#
+
+    private static let blockScalarIndicator = rx(#"^[|>](?:[+-]?[1-9]?|[1-9][+-])$"#)
+
+    /// The span to replace for one key-and-value match, or `nil` when the value is prose.
+    ///
+    /// - A quoted value, a JSON key (`"token": …`), an `=` assignment or a YAML block scalar
+    ///   (`password: |` and its indented lines) always goes, however short: the shape alone
+    ///   says it is a value. `true`, `false` and `null` unquoted are never secrets.
+    /// - `key: word` unquoted is where title-like prose lives (`Password: troubleshooting
+    ///   guide`, `Reset your password: step 2`). A letters-only value with another word after
+    ///   it on the line is prose and stays.
+    /// - Otherwise a credential key (`alwaysCredential`, a compound name such as `api_key`,
+    ///   `GITHUB_TOKEN` or `clientSecret`) loses its value. A bare `secret`, `token` or
+    ///   `credentials` keeps it unless it looks like a secret: eight characters or more, and a
+    ///   digit or symbol in it or twenty characters or more (`Token: expired`,
+    ///   `token: authentication` stay).
+    static func credentialValue(_ match: NSTextCheckingResult, in ns: NSString, alwaysCredential: Bool) -> NSRange? {
+        guard match.numberOfRanges > 4 else { return nil }
+        let key = match.range(at: 1)
+        let value = match.range(at: 4)
+        guard key.location != NSNotFound, value.location != NSNotFound, value.length > 0 else { return nil }
+        let text = ns.substring(with: value)
+        if text.hasPrefix("\"") || text.hasPrefix("'") { return value }
+        if let block = blockScalarRange(value, text: text, in: ns) { return block }
+        if ["true", "false", "null"].contains(text.lowercased()) { return nil }
+        if match.range(at: 2).length > 0 || ns.substring(with: match.range(at: 3)) == "=" { return value }
+        if isFollowedByProse(value, text: text, in: ns) { return nil }
+        let keyword = ns.substring(with: key).lowercased()
+        let bareWord = ["secret", "token", "credential", "credentials"].contains(keyword)
+        if alwaysCredential || !bareWord || hasIdentifierPrefix(key, in: ns) { return value }
+        return looksLikeSecret(text) ? value : nil
+    }
+
+    /// `DB_|TOKEN`, `x-|token`, `github|Token`: the keyword ends a longer identifier.
+    private static func hasIdentifierPrefix(_ key: NSRange, in ns: NSString) -> Bool {
+        guard key.location > 0 else { return false }
+        let previous = ns.character(at: key.location - 1)
+        if previous == 95 || previous == 45 {  // `_` or `-`
+            return key.location > 1 && isASCIIAlphanumeric(ns.character(at: key.location - 2))
+        }
+        return isASCIIAlphanumeric(previous)
+    }
+
+    private static func isASCIIAlphanumeric(_ c: unichar) -> Bool {
+        (48...57).contains(c) || (65...90).contains(c) || (97...122).contains(c)
+    }
+
+    private static func isFollowedByProse(_ value: NSRange, text: String, in ns: NSString) -> Bool {
+        guard text.allSatisfy(\.isLetter) else { return false }
+        var index = value.location + value.length
+        var gap = 0
+        while index < ns.length, ns.character(at: index) == 32 || ns.character(at: index) == 9 {
+            index += 1
+            gap += 1
+        }
+        guard gap > 0, index < ns.length, let scalar = Unicode.Scalar(ns.character(at: index)) else { return false }
+        return CharacterSet.alphanumerics.contains(scalar)
+    }
+
+    private static func looksLikeSecret(_ text: String) -> Bool {
+        var trimmed = Substring(text)
+        while let last = trimmed.last, ".!?):".contains(last) { trimmed = trimmed.dropLast() }
+        guard trimmed.count >= 8 else { return false }
+        return trimmed.count >= 20 || trimmed.contains { !$0.isLetter }
+    }
+
+    /// `password: |` (or `>`, `|-`, `>+2` …) at the end of its line, and every following line
+    /// indented deeper than the key's, blank lines between them included: the whole block is
+    /// the value. `nil` when `value` is not a block scalar indicator.
+    private static func blockScalarRange(_ value: NSRange, text: String, in ns: NSString) -> NSRange? {
+        guard text.first == "|" || text.first == ">",
+              blockScalarIndicator.firstMatch(in: text, range: NSRange(location: 0, length: (text as NSString).length)) != nil
+        else { return nil }
+        let length = ns.length
+        func isBlank(_ c: unichar) -> Bool { c == 32 || c == 9 || c == 13 }
+
+        // The rest of the key's line is blank or a comment.
+        var index = value.location + value.length
+        var inComment = false
+        while index < length, ns.character(at: index) != 10 {
+            let c = ns.character(at: index)
+            if c == 35 { inComment = true } else if !inComment && !isBlank(c) { return nil }
+            index += 1
+        }
+
+        // The key line's indentation.
+        var lineStart = value.location
+        while lineStart > 0, ns.character(at: lineStart - 1) != 10 { lineStart -= 1 }
+        var keyIndent = 0
+        while lineStart + keyIndent < length, ns.character(at: lineStart + keyIndent) == 32
+            || ns.character(at: lineStart + keyIndent) == 9 {
+            keyIndent += 1
+        }
+
+        var end = value.location + value.length
+        while index < length {  // `index` sits on a newline
+            var cursor = index + 1
+            var indent = 0
+            while cursor < length, ns.character(at: cursor) == 32 || ns.character(at: cursor) == 9 {
+                indent += 1
+                cursor += 1
+            }
+            var lineEnd = cursor
+            while lineEnd < length, ns.character(at: lineEnd) != 10 { lineEnd += 1 }
+            let blank = (cursor..<lineEnd).allSatisfy { isBlank(ns.character(at: $0)) }
+            if !blank {
+                guard indent > keyIndent else { break }
+                end = lineEnd
+            }
+            index = lineEnd
+        }
+        return NSRange(location: value.location, length: end - value.location)
+    }
 
     // MARK: - Checksums
 

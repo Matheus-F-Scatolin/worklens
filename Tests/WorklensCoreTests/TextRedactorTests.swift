@@ -180,8 +180,100 @@ struct TextRedactorTests {
         for text in kept {
             #expect(redactor.redact(text).text == text, "\(text)")
         }
-        // A colon after "password" takes only the next word, never the line.
-        #expect(redactor.redact("password: reset link sent").text == "password: [PASSWORD] link sent")
+        // A colon after "password" takes only the next word, never the line; and a plain word
+        // with more words after it is a sentence, not a password.
+        #expect(redactor.redact("password: hunter2 link sent").text == "password: [PASSWORD] link sent")
+        #expect(redactor.redact("password: reset link sent").text == "password: reset link sent")
+    }
+
+    @Test("title-like prose after a credential word and a colon stays (security review)")
+    func credentialColonProse() {
+        let kept = [
+            "Password: troubleshooting guide",
+            "token: authentication",
+            "Reset your password: step 2",
+            "Secret Santa: gift ideas",
+            "Token: expired.",
+            "secret: keep it safe",
+            "Help — Password: Forgot it — Settings",
+            #"{"enabled": true, "secret": null}"#,
+            "hasPassword: false",
+        ]
+        for text in kept {
+            let result = redactor.redact(text)
+            #expect(result.text == text, "\(text)")
+            #expect(result.isClean, "\(text)")
+        }
+    }
+
+    @Test("YAML block scalars lose every line of their value (security review)")
+    func yamlBlockScalars() {
+        let cases: [(String, String)] = [
+            ("password: |\n  hunter2\nhost: db", "password: [PASSWORD]\nhost: db"),
+            ("password: >\n  hunter2", "password: [PASSWORD]"),
+            ("password: |-\n  hunter2\n  second line", "password: [PASSWORD]"),
+            ("db:\n  password: >-\n    hunter2\n    more\n\n  host: db", "db:\n  password: [PASSWORD]\n\n  host: db"),
+            ("- password: |+ # rotated\n    hunter2\n- user: ana", "- password: [PASSWORD]\n- user: ana"),
+            ("client_secret: |\n  abc\n  def\nnext: 1", "client_secret: [SECRET_1]\nnext: 1"),
+            ("private_key: |\n  MIIEvQIBADANBgkq\n  hkiG9w0BAQEFAASC\nport: 1", "private_key: [SECRET_1]\nport: 1"),
+        ]
+        for (input, expected) in cases {
+            let result = redactor.redact(input)
+            #expect(result.text == expected, "\(input)")
+            #expect(result.total == 1, "\(input)")
+            #expect(!result.text.contains("hunter2"), "\(input)")
+        }
+    }
+
+    @Test("camelCase and compound credential names lose their value (security review)")
+    func camelCaseCredentialNames() {
+        let cases: [(String, String)] = [
+            ("awsSecretAccessKey=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "awsSecretAccessKey=[SECRET_1]"),
+            ("clientSecret: s3cr3tvalue", "clientSecret: [SECRET_1]"),
+            ("clientSecret = 'abc'", "clientSecret = [SECRET_1]"),
+            ("apiKey=abc", "apiKey=[SECRET_1]"),
+            ("apikey: zz", "apikey: [SECRET_1]"),
+            (#"{"accessToken":"abc"}"#, #"{"accessToken":[SECRET_1]}"#),
+            ("accessToken: xyz", "accessToken: [SECRET_1]"),
+            ("refreshToken: abc", "refreshToken: [SECRET_1]"),
+            ("privateKey: abc123", "privateKey: [SECRET_1]"),
+            ("const githubToken = 'ghx'", "const githubToken = [SECRET_1]"),
+            ("SLACK_TOKEN: xoxq", "SLACK_TOKEN: [SECRET_1]"),
+            ("dbPassword=hunter2", "dbPassword=[PASSWORD]"),
+            ("newPassword: letmein", "newPassword: [PASSWORD]"),
+        ]
+        for (input, expected) in cases {
+            #expect(redactor.redact(input).text == expected, "\(input)")
+        }
+    }
+
+    @Test("a quoted value honours backslash escapes (security review)")
+    func escapedQuotes() {
+        #expect(redactor.redact(#"{"password":"hunter\"two"}"#).text == #"{"password":[PASSWORD]}"#)
+        #expect(redactor.redact(#"{"password":"hunter\"two","user":"ana"}"#).text
+            == #"{"password":[PASSWORD],"user":"ana"}"#)
+        #expect(redactor.redact(#"secret = 'it\'s mine' # note"#).text == "secret = [SECRET_1] # note")
+        #expect(redactor.redact(#"{"api_key":"a\\"}"#).text == #"{"api_key":[SECRET_1]}"#)
+        // A quote cut off by the end of a title takes the rest of the line.
+        #expect(redactor.redact(#"{"password":"hunter2 and more"#).text == #"{"password":[PASSWORD]"#)
+    }
+
+    @Test("credential-specific keys have no minimum length (security review)")
+    func shortCredentialValues() {
+        let cases: [(String, String)] = [
+            ("api_key=abc123", "api_key=[SECRET_1]"),
+            ("password=x", "password=[PASSWORD]"),
+            ("pwd: a1", "pwd: [PASSWORD]"),
+            ("passwd: hunter", "passwd: [PASSWORD]"),
+            ("client_secret=ab", "client_secret=[SECRET_1]"),
+            ("private_key: k1", "private_key: [SECRET_1]"),
+            ("token=abc", "token=[SECRET_1]"),
+            (#"{"token": "abc"}"#, #"{"token": [SECRET_1]}"#),
+            ("secret: s3cr3t!x", "secret: [SECRET_1]"),
+        ]
+        for (input, expected) in cases {
+            #expect(redactor.redact(input).text == expected, "\(input)")
+        }
     }
 
     @Test("a URL's userinfo is dropped in text, and its password counts (security review #3)")
@@ -366,9 +458,13 @@ struct TextRedactorTests {
 
     @Test("a scheme-less query goes in redact too, counting nothing unless a secret was in it")
     func redactSchemelessQuery() {
-        let plain = redactor.redact("[AXTextField] mail.example.com/inbox?token=abc")
+        let plain = redactor.redact("[AXTextField] mail.example.com/inbox?folder=abc")
         #expect(plain.text == "[AXTextField] mail.example.com/inbox")
         #expect(plain.isClean)
+        // `token=abc` is a credential assignment of any length, so it counts as it goes.
+        let token = redactor.redact("[AXTextField] mail.example.com/inbox?token=abc")
+        #expect(token.text == "[AXTextField] mail.example.com/inbox")
+        #expect(token.counts == [.secret: 1])
 
         let secret = redactor.redact("mail.example.com/x?key=sk-live-9f8a7b6c5d4e3f2a1b and sk-live-0a1b2c3d4e5f6a7b8c")
         // The one inside the query goes with it and still counts; the one outside keeps its
