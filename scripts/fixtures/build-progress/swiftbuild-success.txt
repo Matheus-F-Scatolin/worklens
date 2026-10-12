@@ -1,0 +1,53 @@
+ok    swift                  6.4 (needs 6.1)
+ok    xcode-select           /Applications/Xcode.app/Contents/Developer
+ok    swift-testing          on the default search paths (full Xcode) — `make test` is still the documented way
+ok    sdk                    matches this Swift
+swift build -c release
+Fetching https://github.com/apple/swift-argument-parser from cache
+Fetching https://github.com/groue/GRDB.swift.git from cache
+Fetched https://github.com/groue/GRDB.swift.git from cache (0.67s)
+Fetched https://github.com/apple/swift-argument-parser from cache (0.67s)
+Computing version for https://github.com/apple/swift-argument-parser
+Computed https://github.com/apple/swift-argument-parser at 1.8.2 (0.98s)
+Computing version for https://github.com/groue/GRDB.swift.git
+Computed https://github.com/groue/GRDB.swift.git at 7.11.1 (0.49s)
+Creating working copy for https://github.com/groue/GRDB.swift.git
+Working copy of https://github.com/groue/GRDB.swift.git resolved at 7.11.1
+Creating working copy for https://github.com/apple/swift-argument-parser
+Working copy of https://github.com/apple/swift-argument-parser resolved at 1.8.2
+Building for production...
+[Pre-planning 1 / 185]
+[49 / 82]
+[51 / 84] ArgumentParserToolInfo
+[55 / 87] GRDB
+[63 / 123]
+[71 / 123]
+[75 / 123]
+[80 / 123]
+[91 / 124]
+[94 / 124] ArgumentParser
+[100 / 127]
+[101 / 127]
+[103 / 127] ArgumentParser
+[109 / 127] GRDB
+[116 / 128] WorklensCore
+[128 / 207]
+[140 / 207]
+[143 / 207]
+[150 / 207]
+[155 / 207]
+[161 / 207]
+[166 / 207]
+[167 / 207]
+[182 / 207]
+[184 / 207]
+[193 / 207]
+[194 / 207]
+[195 / 207]
+[196 / 207] WorklensCore
+[203 / 208] WorklensCore
+[203 / 208] Worklens-product
+[208 / 212] Worklens-product
+[210 / 212] Worklens-product
+[211 / 212] Worklens-product
+Build complete! (76,18 secs)

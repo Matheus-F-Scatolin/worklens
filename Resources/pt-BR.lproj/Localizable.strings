@@ -1,0 +1,330 @@
+/*
+  Português do Brasil — partial on purpose (#161).
+
+  Covers the popover, the status and counts lines, the menu-bar item's spoken label, the
+  notifications, the welcome window and the reader's empty states: the surfaces
+  the acceptance check reads, plus the ones a user meets before anything else. Most of Settings
+  is still English here, and falls back to its key, which is the English sentence — that fallback
+  is the whole point of the mechanism and this file is where you can watch it work, one row at a
+  time. A surface is translated whole or not at all, though: half a pane in each language is the
+  one outcome worse than all of it in English.
+
+  Add the missing keys by copying them out of ../en.lproj/Localizable.strings; nothing breaks
+  while they are absent. See CONTRIBUTING.md → "Add a language".
+*/
+
+/* Status line and the menu-bar item's spoken label */
+"Capturing · %@" = "Capturando · %@";
+"every %@" = "a cada %@";
+"%@ (meeting)" = "%@ (reunião)";
+"Paused until you resume" = "Pausado até você retomar";
+"Paused until tomorrow" = "Pausado até amanhã";
+"Paused until %@" = "Pausado até %@";
+"Idle · nothing to record" = "Ocioso · nada a registrar";
+"Locked" = "Bloqueado";
+"Asleep" = "Suspenso";
+"Screen Recording permission needed" = "Falta a permissão de Gravação de Tela";
+"Budget reached: screenshots on hold" = "Orçamento atingido: capturas em espera";
+"Stopped" = "Parado";
+"On battery" = "Na bateria";
+"Low Power Mode" = "Modo de Baixo Consumo";
+"%@ · capturing every %@" = "%@ · capturando a cada %@";
+"%@ · describing when plugged in" = "%@ · descrevendo quando estiver na tomada";
+"Data folder problem" = "Problema na pasta de dados";
+"Configuration error" = "Erro de configuração";
+
+"Worklens, %@" = "Worklens, %@";
+"Worklens, capturing %@" = "Worklens, capturando %@";
+"Worklens, capturing %@, meeting cadence" = "Worklens, capturando %@, ritmo de reunião";
+"Worklens, %@, capturing %@" = "Worklens, %@, capturando %@";
+"%@, describing when plugged in" = "%@, descrevendo quando estiver na tomada";
+"on battery" = "na bateria";
+"in Low Power Mode" = "no Modo de Baixo Consumo";
+"Worklens, paused until you resume" = "Worklens, pausado até você retomar";
+"Worklens, paused until tomorrow" = "Worklens, pausado até amanhã";
+"Worklens, paused until %@" = "Worklens, pausado até %@";
+"Worklens, idle, nothing to record" = "Worklens, ocioso, nada a registrar";
+"Worklens, screen locked" = "Worklens, tela bloqueada";
+"Worklens, asleep" = "Worklens, suspenso";
+"Worklens, Screen Recording permission needed" = "Worklens, falta a permissão de Gravação de Tela";
+"Worklens, daily budget reached, screenshots on hold" = "Worklens, orçamento diário atingido, capturas em espera";
+"Worklens, stopped" = "Worklens, parado";
+"Worklens, data folder problem" = "Worklens, problema na pasta de dados";
+"Worklens, configuration error" = "Worklens, erro de configuração";
+
+/* The counts line */
+"%lld summarized" = "%lld resumidas";
+"%lld waiting" = "%lld aguardando";
+"%lld failed" = "%lld falharam";
+"%lld on hold" = "%lld em espera";
+"%lld blocked" = "%lld bloqueadas";
+"%lld flagged sensitive" = "%lld marcadas como sensíveis";
+"%@ not watched" = "%@ sem acompanhamento";
+"%@ of %@" = "%@ de %@";
+"%@: over budget" = "%@: acima do orçamento";
+"%@ (%lld %% of today's budget)" = "%@ (%lld %% do orçamento de hoje)";
+
+/* Menu rows and submenus */
+"%@ active" = "%@ em atividade";
+"%@ in meetings" = "%@ em reuniões";
+"Pause" = "Pausar";
+"15 minutes" = "15 minutos";
+"1 hour" = "1 hora";
+"Until tomorrow" = "Até amanhã";
+"Until I resume" = "Até eu retomar";
+"Resume" = "Retomar";
+"Start capturing" = "Começar a capturar";
+"Capture now" = "Capturar agora";
+"Dismiss" = "Dispensar";
+"Cancel" = "Cancelar";
+"Open .env…" = "Abrir .env…";
+"Reload" = "Recarregar";
+"Reload configuration" = "Recarregar configuração";
+"Use defaults and start" = "Usar os padrões e começar";
+"Data folder" = "Pasta de dados";
+"Choose a data folder in Settings…" = "Escolher uma pasta de dados nos Ajustes…";
+"Try again" = "Tentar de novo";
+"Today" = "Hoje";
+"Open Worklens" = "Abrir o Worklens";
+"Reports" = "Relatórios";
+"Delete" = "Apagar";
+"Last 10 minutes…" = "Últimos 10 minutos…";
+"Last hour…" = "Última hora…";
+"Help" = "Ajuda";
+"Getting started…" = "Primeiros passos…";
+"Privacy…" = "Privacidade…";
+"Troubleshooting…" = "Solução de problemas…";
+"Open log folder" = "Abrir a pasta de logs";
+"Settings…" = "Ajustes…";
+"Quit Worklens" = "Sair do Worklens";
+
+/* Report items */
+"Write today's report" = "Escrever o relatório de hoje";
+"Write this week's report" = "Escrever o relatório desta semana";
+
+/* Advisory and problem rows */
+"Add your Gemini API key to get started" = "Adicione sua chave de API do Gemini para começar";
+"Add your Gemini API key…" = "Adicionar sua chave de API do Gemini…";
+"%@ needs attention: reconnect it in Settings" = "%@ precisa de atenção: reconecte-o nos Ajustes";
+"%@ need attention: reconnect them in Settings" = "%@ precisam de atenção: reconecte-os nos Ajustes";
+"%@ and %@" = "%@ e %@";
+"Not captured: that app is on your never-capture list." = "Não capturado: esse app está na sua lista de nunca capturar.";
+"Not captured: the screen is locked." = "Não capturado: a tela está bloqueada.";
+"Not captured: this window exposed no text to read." = "Não capturado: esta janela não expôs texto para ler.";
+"Nothing new: this screen looks the same as the last one." = "Nada novo: esta tela parece igual à anterior.";
+"Not captured this time." = "Não capturado desta vez.";
+
+/* Notifications */
+"Daily budget reached" = "Orçamento diário atingido";
+"Screenshots are still saved and on hold; summarizing resumes after midnight." = "As capturas continuam salvas e em espera; o resumo recomeça depois da meia-noite.";
+"Your pause has ended" = "Sua pausa terminou";
+"Worklens is capturing again." = "O Worklens está capturando de novo.";
+"Worklens paused" = "Worklens pausado";
+"Nothing is being captured until you resume." = "Nada está sendo capturado até você retomar.";
+"Worklens capturing" = "Worklens capturando";
+"Summaries have stopped" = "Os resumos pararam";
+"Worklens is not summarizing your screenshots." = "O Worklens não está resumindo suas capturas.";
+"%@ needs attention" = "%@ precisa de atenção";
+"Worklens could not sync it." = "O Worklens não conseguiu sincronizar.";
+"Sign in to Google" = "Entrar no Google";
+"Calendar is paused until you reconnect." = "O Agenda fica pausado até você reconectar.";
+"Capturing again" = "Capturando de novo";
+"Screen Recording permission is back." = "A permissão de Gravação de Tela voltou.";
+"Worklens is updating" = "O Worklens está atualizando";
+"A new build is available: Worklens restarts in about a minute, capturing nothing meanwhile." = "Há uma nova versão: o Worklens reinicia em cerca de um minuto e não captura nada enquanto isso.";
+"New database started" = "Novo banco de dados criado";
+"The old one could not be opened and was kept as %@." = "O antigo não pôde ser aberto e foi mantido como %@.";
+"Show in Finder" = "Mostrar no Finder";
+
+/* The welcome window (#131, four pages since #232) */
+"Worklens does not start capturing on its own. Capture starts when you finish this window, or when you press “%@” in the menu." = "O Worklens não começa a capturar sozinho. A captura começa quando você conclui esta janela, ou quando você aperta “%@” no menu.";
+"Done" = "Concluir";
+"It takes a screenshot of the window you are in, about once a minute." = "Ele tira uma captura da janela em que você está, mais ou menos uma vez por minuto.";
+"Everything stays in one folder on this Mac. A screenshot goes to Gemini for a one-line description, and is deleted afterwards." = "Tudo fica em uma pasta neste Mac. Uma captura vai para o Gemini para ganhar uma descrição de uma linha, e é apagada depois.";
+"What Worklens records, in full" = "O que o Worklens registra, por inteiro";
+"Skip for now" = "Pular por enquanto";
+"Gemini describes each screenshot in a line or two, which is what makes your day searchable. Without this key Worklens still captures, and describes what it kept once you add one." = "O Gemini descreve cada captura em uma ou duas linhas, e é isso que torna o seu dia pesquisável. Sem esta chave o Worklens continua capturando, e descreve o que guardou assim que você adicionar uma.";
+"About $0.10 a day at the defaults. Settings → Usage shows what you have spent and stops at a daily budget you set." = "Cerca de US$ 0,10 por dia nos padrões. Ajustes → Uso mostra o que você gastou e para num orçamento diário que você define.";
+"Get a Gemini key" = "Obter uma chave do Gemini";
+"Worklens is capturing." = "O Worklens está capturando.";
+"Worklens starts capturing when you close this window." = "O Worklens começa a capturar quando você fechar esta janela.";
+"Read your days in Claude Desktop" = "Leia os seus dias no Claude Desktop";
+"Worklens can add itself to Claude Desktop in one click, and then you ask Claude what you worked on yesterday. It reads your days; it cannot capture, pause or delete anything." = "O Worklens pode se adicionar ao Claude Desktop em um clique, e então você pergunta ao Claude no que trabalhou ontem. Ele lê os seus dias; não pode capturar, pausar nem apagar nada.";
+"Your day and your week, drawn from what Worklens recorded, live in one window. The menu-bar icon opens it whenever you like." = "O seu dia e a sua semana, a partir do que o Worklens registrou, ficam em uma janela só. O ícone da barra de menus a abre quando você quiser.";
+"Accessibility and browser access are optional and live in Settings → Capture." = "Acessibilidade e acesso ao navegador são opcionais e ficam em Ajustes → Captura.";
+"Welcome to Worklens" = "Boas-vindas ao Worklens";
+"Set up Worklens…" = "Configurar o Worklens…";
+"Show welcome again" = "Mostrar as boas-vindas de novo";
+"Back" = "Voltar";
+"Continue" = "Continuar";
+"Skip" = "Pular";
+"What it records" = "O que ele registra";
+"What it never records" = "O que ele nunca registra";
+"What leaves your Mac" = "O que sai do seu Mac";
+"What stops it" = "O que o interrompe";
+"A screenshot, only when the focused window's own text did not already cover it" = "Uma captura de tela, apenas quando o texto da própria janela em foco já não bastava";
+"Metadata about the moment: the timestamp, which display, the frontmost app's bundle id and name, the window title" = "Metadados do momento: o horário, qual monitor, o bundle id e o nome do app em primeiro plano, o título da janela";
+"The focused window's text, but only if you grant Accessibility" = "O texto da janela em foco, mas só se você conceder Acessibilidade";
+"A short text description of each frame: one or two sentences, an app label and a task label from your own taxonomy." = "Uma breve descrição em texto de cada quadro: uma ou duas frases, um rótulo de app e um rótulo de tarefa da sua própria taxonomia.";
+"Audio. Nothing in Worklens opens a microphone." = "Áudio. Nada no Worklens abre um microfone.";
+"Keystrokes. The only thing it asks the input system is how long ago you last touched the keyboard or mouse, so it can tell whether you are there. Not what you pressed." = "Teclas digitadas. A única coisa que ele pergunta ao sistema de entrada é há quanto tempo você tocou o teclado ou o mouse pela última vez, para saber se você está aí. Não o que você apertou.";
+"Other people's screens or accounts. Only the frontmost window of your own session." = "Telas ou contas de outras pessoas. Apenas a janela em primeiro plano da sua própria sessão.";
+"Anything at all while paused, locked, asleep, idle, or in front of a blocked app." = "Nada, enquanto estiver pausado, bloqueado, suspenso, ocioso ou diante de um app bloqueado.";
+"The value of a password field." = "O valor de um campo de senha.";
+"Everything else that leaves is optional: GitHub, asked once every 15 minutes what main points at and nothing else, and the context sources you connect yourself." = "Todo o resto que sai é opcional: o GitHub, consultado a cada 15 minutos apenas sobre para onde a main aponta, e as fontes de contexto que você mesmo conecta.";
+"Nothing goes to the author of this software. No analytics, no crash reporting, no identifier." = "Nada vai para o autor deste software. Sem analytics, sem relatório de falhas, sem identificador.";
+"⌥⇧P pauses everything instantly" = "⌥⇧P pausa tudo na hora";
+"three blocklists keep an app or a site out entirely, editable in Settings → Privacy" = "três listas de bloqueio mantêm um app ou um site totalmente de fora, editáveis em Ajustes → Privacidade";
+"1Password and Password are blocked by default" = "1Password e Password são bloqueados por padrão";
+"the menu deletes the last 10 minutes or the last hour." = "o menu apaga os últimos 10 minutos ou a última hora.";
+"Use a billing-enabled Gemini project. On Google's free tier your prompts and images may be used to improve their models. On a paid project they are not." = "Use um projeto Gemini com cobrança ativada. No nível gratuito do Google, seus prompts e imagens podem ser usados para melhorar os modelos deles. Em um projeto pago, não são.";
+"PRIVACY.md in the repository says all of this again, naming the file that implements each line. Settings → Privacy is where you change it." = "O PRIVACY.md no repositório diz tudo isso de novo, nomeando o arquivo que implementa cada linha. Ajustes → Privacidade é onde você muda isso.";
+"Worklens captures the frontmost window of your own screen and describes it. Without this grant it records which app you were in and nothing of what was on screen." = "O Worklens captura a janela em primeiro plano da sua própria tela e a descreve. Sem esta permissão, ele registra em qual app você estava e nada do que havia na tela.";
+"Granted. Worklens can capture your screen." = "Concedido. O Worklens pode capturar a sua tela.";
+"Screen Recording is not granted, so nothing will be captured until it is. You can start anyway: the menu keeps offering the grant, and Settings → Capture has it too." = "A Gravação de Tela não foi concedida, então nada será capturado até que seja. Você pode começar mesmo assim: o menu continua oferecendo a permissão, e Ajustes → Captura também a tem.";
+"Gemini key" = "Chave do Gemini";
+"Finish this window" = "Concluir esta janela";
+"Required" = "Obrigatório";
+"Re-check" = "Verificar de novo";
+"Open System Settings" = "Abrir os Ajustes do Sistema";
+"Open Login Items" = "Abrir Itens de Início de Sessão";
+"Launch at login" = "Abrir no login";
+"Screen Recording" = "Gravação de Tela";
+"Accessibility" = "Acessibilidade";
+"Notifications" = "Notificações";
+
+/* The reader window's empty states */
+"Worklens" = "Worklens";
+"Total" = "Total";
+
+/* Settings: the spend table, the date range and the alerts */
+"Other" = "Outros";
+"From" = "De";
+"To" = "Até";
+"Until this is fixed the tabs below are showing Worklens's built-in defaults, not your values." = "Até isso ser corrigido, as abas abaixo mostram os padrões embutidos do Worklens, não os seus valores.";
+"These keys no longer do anything and can be deleted: %@" = "Estas chaves não fazem mais nada e podem ser apagadas: %@";
+"Your Google sign-in expired, so Calendar is paused." = "O seu login do Google expirou, então o Agenda está pausado.";
+"While your consent screen stays in Testing, Google expires the sign-in every 7 days. Worklens then pauses Calendar and shows a Reconnect button: one click, no terminal." = "Enquanto a sua tela de consentimento ficar em Testing, o Google expira o login a cada 7 dias. O Worklens então pausa o Agenda e mostra um botão Reconnect: um clique, sem terminal.";
+
+/* The pause reminder (#113) */
+"Worklens is still paused" = "O Worklens continua pausado";
+"Nothing is being captured until you resume, from the menu or with the pause hotkey." = "Nada está sendo capturado até você retomar, pelo menu ou com o atalho de pausa.";
+"Nothing is being captured until %@." = "Nada está sendo capturado até %@.";
+
+/* #239: no Claude key is a setting, not a failure */
+"Reports are off: add a Claude key in Settings to turn them on." = "Os relatórios estão desligados: adicione uma chave da Claude em Ajustes para ligá-los.";
+"The API key was rejected: check it under Settings → Connections." = "A chave de API foi recusada: verifique em Ajustes → Conexões.";
+
+/* #240 — os relatórios estão desligados, dito uma vez onde um relatório estaria */
+"Worklens cannot describe your screenshots until this is set." = "O Worklens não pode descrever suas capturas de tela enquanto isto não for definido.";
+
+/* #242: Ajustes → Capture, agora com controles no lugar de leituras */
+"A picture only" = "Só uma imagem";
+"Balanced" = "Equilibrado";
+"Being on battery changes nothing." = "Estar na bateria não muda nada.";
+"Custom" = "Personalizado";
+"In a meeting, every" = "Em uma reunião, a cada";
+"Keep going" = "Seguir igual";
+"Look at your screen every" = "Olhar a sua tela a cada";
+"Picture quality" = "Qualidade da imagem";
+"Sharper" = "Mais nítido";
+"Slow down" = "Ir mais devagar";
+"Smaller files" = "Arquivos menores";
+"Stop after you have been away for" = "Parar depois que você ficar longe por";
+"Text and a picture" = "Texto e uma imagem";
+"Text only" = "Só texto";
+"Text, then the rest" = "Texto e o que sobrar";
+"Wait for the charger" = "Esperar o carregador";
+"What Worklens looks at" = "O que o Worklens olha";
+
+/* #241: the MCP prompts a client shows in its "+" menu */
+"How did today go?" = "Como foi o dia de hoje?";
+"Walk through one day from what was actually on screen." = "Percorra um dia a partir do que esteve de fato na tela.";
+"What did I work on this week?" = "No que eu trabalhei nesta semana?";
+"Pull the week together from the days that have data." = "Junte a semana a partir dos dias que têm dados.";
+"When did I last touch this?" = "Quando eu mexi nisso pela última vez?";
+"Find the last time something was on your screen." = "Encontre a última vez que algo esteve na sua tela.";
+"Where did my week go, by project?" = "Para onde foi a minha semana, por projeto?";
+"Split the week's tracked time across projects." = "Divida o tempo registrado da semana entre os projetos.";
+
+/* #246: the two sentences this issue replaced, re-keyed onto their new English strings */
+"macOS hands a new answer only to a copy of Worklens that starts afterwards, so allow it and then relaunch. This window comes back to this page when Worklens returns." = "O macOS entrega uma nova resposta apenas a uma cópia do Worklens que começar depois, então permita e reinicie. Esta janela volta para esta página quando o Worklens voltar.";
+"Ask macOS for notifications…" = "Pedir notificações ao macOS…";
+
+/* #251 */
+"Advanced" = "Avançado";
+"Configuration" = "Configuração";
+"Log level" = "Nível de registro";
+"Restore" = "Restaurar";
+/* #252: a barra de menus diz a verdade — contagem falada, pausa com contagem regressiva e um segundo atalho */
+"Nothing recorded yet today" = "Nada registrado hoje ainda";
+"%@ spent" = "%@ gastos";
+"Shortcuts" = "Atalhos";
+"Read the privacy note" = "Ler a nota de privacidade";
+"Worklens already uses this to open Worklens. Pick another." = "O Worklens já usa esse atalho para abrir o Worklens. Escolha outro.";
+"Worklens already uses this to pause and resume. Pick another." = "O Worklens já usa esse atalho para pausar e retomar. Escolha outro.";
+/* #249: a frase do próprio dia, na barra lateral do leitor, no aviso de relatório pronto e na tabela days do MCP */
+"Mostly %1$@, %2$@ on screen" = "Principalmente %1$@, %2$@ na tela";
+"%@ on screen" = "%@ na tela";
+"%1$@ and %2$@" = "%1$@ e %2$@";
+"1 screenshot" = "1 captura de tela";
+"%lld screenshots" = "%lld capturas de tela";
+
+/* Wave 4 integration: the blocklist footer stops naming a key */
+"none" = "nenhum";
+"not yet" = "ainda não";
+
+/* #323 */
+"What did I ship, and where did my time go?" = "O que eu entreguei, e para onde foi o meu tempo?";
+"Put what you shipped beside the time each project took." = "Ponha o que você entregou ao lado do tempo de cada projeto.";
+
+/* #349 */
+"Sample week: invented, not yours." = "Semana de exemplo: inventada, não é sua.";
+"Leave sample week" = "Sair da semana de exemplo";
+"Sample week" = "Semana de exemplo";
+"An invented week to look around in. It is never sent to Claude." = "Uma semana inventada para você explorar. Ela nunca é enviada ao Claude.";
+"Show sample week" = "Mostrar semana de exemplo";
+
+/* #350 */
+"Your first moments show up in about a minute." = "Seus primeiros momentos aparecem em cerca de um minuto.";
+"Your day has started." = "Seu dia começou.";
+"The sample week is gone. Your own day is on the Today page: choose Open Worklens in the menu bar." = "A semana de exemplo foi removida. O seu dia está na página Hoje: escolha Abrir o Worklens na barra de menus.";
+
+/* #351 */
+"%@ pauses everything, from any app. The menu-bar ring's Delete menu deletes the last 10 minutes or the last hour." = "%@ pausa tudo, de qualquer app. O menu Apagar do anel na barra de menus apaga os últimos 10 minutos ou a última hora.";
+"%lld of %lld" = "%lld de %lld";
+"Ask Claude about your day" = "Pergunte ao Claude sobre o seu dia";
+"If you cannot find the menu-bar icon…" = "Se você não encontra o ícone na barra de menus…";
+"Next" = "Próximo";
+"One bar, opened up" = "Uma barra, aberta";
+"Pause, delete and this window all start from the ring. Click it whenever you want Worklens." = "Pausar, apagar e esta janela começam todos no anel. Clique nele sempre que quiser o Worklens.";
+"Pause, or delete" = "Pausar, ou apagar";
+"Settings → Connections adds Worklens to Claude Desktop. Then ask Claude what you worked on yesterday; it reads your days and changes nothing." = "Ajustes → Conexões adiciona o Worklens ao Claude Desktop. Depois pergunte ao Claude no que você trabalhou ontem; ele lê os seus dias e não muda nada.";
+"Take the tour" = "Fazer o tour";
+"Take the tour again" = "Fazer o tour de novo";
+"The menu-bar ring pauses everything. Its Delete menu deletes the last 10 minutes or the last hour." = "O anel na barra de menus pausa tudo. O menu Apagar dele apaga os últimos 10 minutos ou a última hora.";
+"The ring in your menu bar" = "O anel na sua barra de menus";
+"Tour" = "Tour";
+"Walks you through Today, Weeks and the menu-bar ring." = "Mostra Hoje, Semanas e o anel na barra de menus.";
+"Weeks lays the whole week out half an hour at a time, so you can see what each stretch went to." = "Semanas mostra a semana inteira de meia em meia hora, para você ver no que foi cada trecho.";
+"Worklens cannot see its ring in your menu bar right now: the notch or a full bar can hide it. %@ brings this window back from any app." = "O Worklens não vê o anel na sua barra de menus agora: o entalhe ou uma barra cheia podem escondê-lo. %@ traz esta janela de volta de qualquer app.";
+"Worklens cannot see its ring in your menu bar right now: the notch or a full bar can hide it. Open Worklens again from Finder to bring this window back." = "O Worklens não vê o anel na sua barra de menus agora: o entalhe ou uma barra cheia podem escondê-lo. Abra o Worklens de novo pelo Finder para trazer esta janela de volta.";
+"Your day" = "O seu dia";
+"Your week" = "A sua semana";
+
+/* #352 */
+"The tour opens Worklens over a week of made-up days and points at each part of it, one card at a time." = "O tour abre o Worklens sobre uma semana de dias inventados e aponta cada parte dele, um cartão de cada vez.";
+
+/* #357 live fixes */
+"Open your week" = "Abra a sua semana";
+"Click the calendar button on the left to open Weeks. The tour goes on once your week is showing." = "Clique no botão de calendário à esquerda para abrir Semanas. O tour segue assim que a sua semana aparecer.";
+"Today draws where your active time went, one bar per app, biggest first, with your total at the end." = "Hoje mostra para onde foi o seu tempo ativo, uma barra por app, do maior para o menor, com o seu total no fim.";
+"Point at a bar and it opens up like this one: how long you spent in that app, and what you were doing there." = "Aponte para uma barra e ela se abre como esta: quanto tempo você passou naquele app e o que fazia lá.";
+"It takes about a minute. When it ends, this window comes back on the Screen Recording page." = "Leva cerca de um minuto. Quando termina, esta janela volta na página de Gravação de Tela.";
+
+/* #357 second pass */
+"Click one to go on. The arrow keys move the ring, and Return picks the ringed one." = "Clique em um para seguir. As setas movem o contorno, e Return escolhe o contornado.";
+"Bright all day" = "Claro o dia todo";
+"Dark all day" = "Escuro o dia todo";
+"Follows your Mac" = "Segue o seu Mac";
+"A drawing of the sample week: made-up days of real tools, a few meetings and a light weekend." = "Um desenho da semana de exemplo: dias inventados com ferramentas reais, algumas reuniões e um fim de semana leve.";

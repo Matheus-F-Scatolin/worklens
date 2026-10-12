@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The counted nouns the popover and the status line show, in Portuguese (#161). Keys are the
+  English plural, as everywhere else. `Delete %lld screenshots from %%@?` is left out on purpose:
+  it belongs to an alert this partial locale does not cover.
+-->
+<plist version="1.0">
+<dict>
+	<key>Today: %lld screenshots</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>Hoje: %lld captura</string>
+			<key>other</key>
+			<string>Hoje: %lld capturas</string>
+		</dict>
+	</dict>
+	<key>%lld items redacted</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld item ocultado</string>
+			<key>other</key>
+			<string>%lld itens ocultados</string>
+		</dict>
+	</dict>
+	<key>every %lld seconds</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>a cada %lld segundo</string>
+			<key>other</key>
+			<string>a cada %lld segundos</string>
+		</dict>
+	</dict>
+	<key>every %lld minutes</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>a cada %lld minuto</string>
+			<key>other</key>
+			<string>a cada %lld minutos</string>
+		</dict>
+	</dict>
+	<key>%lld screenshots today</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld captura de tela hoje</string>
+			<key>other</key>
+			<string>%lld capturas de tela hoje</string>
+		</dict>
+	</dict>
+	<key>Paused · %lld minutes left</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>Pausado · falta %lld minuto</string>
+			<key>other</key>
+			<string>Pausado · faltam %lld minutos</string>
+		</dict>
+	</dict>
+	<key>Worklens, paused, %lld minutes left</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>Worklens, pausado, falta %lld minuto</string>
+			<key>other</key>
+			<string>Worklens, pausado, faltam %lld minutos</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

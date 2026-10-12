@@ -1,0 +1,45 @@
+# Secrets — never commit a real .env or any key material
+.env
+.env.*
+!.env.example
+*.p12
+*.cer
+*.key
+*.csr
+notary-*.json
+
+# Swift / SwiftPM
+.build/
+.swiftpm/
+*.xcodeproj/
+*.xcworkspace/
+
+# Build output
+build/
+*.app
+*.dmg
+
+# Worklens runtime data (screenshots, descriptions, DB, reports)
+data/
+captures/
+screenshots/
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Logs
+logs/
+*.log
+
+# Agent sessions and worktrees. `git add -f .claude/settings.json` if a project-wide
+# settings file is ever worth sharing.
+.claude/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

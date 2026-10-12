@@ -1,0 +1,21 @@
+# Worklens has two dependency surfaces and one workflow surface. Monthly, grouped, and small:
+# this is a personal tool, and a pull request a week for a patch bump is noise, not maintenance.
+version: 2
+updates:
+  - package-ecosystem: swift
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      swift:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns: ["*"]

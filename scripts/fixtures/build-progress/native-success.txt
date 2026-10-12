@@ -1,0 +1,28 @@
+Fetching https://github.com/apple/swift-argument-parser from cache
+Fetching https://github.com/groue/GRDB.swift.git from cache
+Fetched https://github.com/apple/swift-argument-parser from cache (0.68s)
+Fetched https://github.com/groue/GRDB.swift.git from cache (0.68s)
+Computing version for https://github.com/apple/swift-argument-parser
+Computed https://github.com/apple/swift-argument-parser at 1.8.2 (1.01s)
+Computing version for https://github.com/groue/GRDB.swift.git
+Computed https://github.com/groue/GRDB.swift.git at 7.11.1 (0.43s)
+Creating working copy for https://github.com/groue/GRDB.swift.git
+Working copy of https://github.com/groue/GRDB.swift.git resolved at 7.11.1
+Creating working copy for https://github.com/apple/swift-argument-parser
+Working copy of https://github.com/apple/swift-argument-parser resolved at 1.8.2
+[1/1] Compiling plugin GenerateManual
+[2/2] Compiling plugin GenerateDoccReference
+Building for production...
+[2/12] Write sources
+[5/12] Copying PrivacyInfo.xcprivacy
+[5/12] Copying Info.plist
+[6/12] Write sources
+[9/12] Write swift-version--58304C5D6DBC2206.txt
+[11/14] Compiling ArgumentParserToolInfo ToolInfo.swift
+[12/15] Compiling ArgumentParser BashCompletionsGenerator.swift
+[13/15] Compiling GRDB Configuration.swift
+[14/16] Compiling WorklensCore AgentLedger.swift
+[15/17] Compiling Worklens AppModel+MCP.swift
+[15/17] Write Objects.LinkFileList
+[16/17] Linking Worklens
+Build complete! (81.06s)

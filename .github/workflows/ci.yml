@@ -1,0 +1,199 @@
+# Build, test, bundle, sign and lint Worklens on a GitHub macOS runner.
+#
+# The runner is the only machine that takes the *other* branch of the Makefile's Swift Testing
+# workaround: `SWIFT_TEST_FLAGS` is added only when the Command Line Tools keep Testing.framework
+# under `$(xcode-select -p)/Library/Developer`, which a full Xcode does not, so until this
+# workflow existed the full-Xcode path had never been run. That is most of the point of the
+# `make test` step below.
+#
+# macOS runners are slow and scarce, so the triggers are deliberately narrow and in-progress runs
+# are cancelled.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Bump to discard every cached SwiftPM build directory; see the restore step below.
+  CACHE_VERSION: 1
+
+jobs:
+  build:
+    name: Build, test and sign
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      # Package.swift is `swift-tools-version:6.1`, so an image whose default Xcode is older
+      # fails at manifest parse — and `swift format`'s output differs between toolchains, so an
+      # unpinned runner would disagree with a contributor's machine about what "formatted" means.
+      # Selecting the newest Xcode the image carries, then asserting the version, keeps this
+      # honest without hard-coding an Xcode that a future runner image may drop.
+      - name: Select a Swift 6.1+ toolchain
+        run: |
+          set -euo pipefail
+          newest=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+          if [[ -n "$newest" ]]; then
+            sudo xcode-select -s "$newest/Contents/Developer"
+          fi
+          echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+          swift --version
+          version=$(swift -version 2>&1 | sed -n 's/.*Apple Swift version \([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -1)
+          if [[ -z "$version" ]] || ! printf '6.1\n%s\n' "$version" | sort -C -V; then
+            echo "error: Package.swift needs Swift 6.1+, this runner has '${version:-unknown}'" >&2
+            exit 1
+          fi
+          # The cache below holds object files and precompiled SDK modules, which are only valid
+          # for the exact toolchain and SDK that produced them. Key on the full `swift -version`
+          # banner (it carries the Xcode build, not just 6.1) plus the OS build, so a runner image
+          # that ships a new Xcode misses the cache instead of restoring poison into it.
+          toolchain=$( { swift -version 2>&1; sw_vers -buildVersion; } | shasum -a 256 | cut -c1-16)
+          echo "TOOLCHAIN_KEY=$toolchain" >> "$GITHUB_ENV"
+
+      # A cold run compiles the whole graph twice — once for `swift build -c release` and again
+      # for the debug build `swift test` makes — and most of that is not our 45 k lines. It is
+      # GRDB plus the explicitly precompiled SDK modules, neither of which changes between runs.
+      # Restoring `.build` lets SwiftPM skip both; our own sources come from `actions/checkout`
+      # with fresh mtimes, so they are recompiled either way, which is what we want.
+      #
+      # Restore-only on pull requests, save only on main: pull-request branches here are
+      # short-lived (one per issue) and a cache written from one is readable only by that same
+      # branch, so saving on every run would just churn the repository's 10 GB of cache for
+      # entries nobody reads a second time. Pull requests read main's entry instead.
+      #
+      # Bump CACHE_VERSION to discard every entry by hand if a restored build directory ever
+      # produces a failure that a clean checkout does not.
+      - name: Restore the SwiftPM build directory
+        id: build-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            .build
+            !.build/out/ModuleCache.noindex
+            !.build/out/SDKStatCaches.noindex
+            ~/Library/Caches/org.swift.swiftpm
+          key: swiftpm-v${{ env.CACHE_VERSION }}-${{ env.TOOLCHAIN_KEY }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}
+          restore-keys: |
+            swiftpm-v${{ env.CACHE_VERSION }}-${{ env.TOOLCHAIN_KEY }}-${{ hashFiles('Package.resolved') }}-
+            swiftpm-v${{ env.CACHE_VERSION }}-${{ env.TOOLCHAIN_KEY }}-
+
+      - name: Build (release)
+        run: swift build -c release
+
+      - name: Test
+        run: make test
+
+      - name: Script checks
+        run: make test-scripts
+
+      # Right after the last compiling step rather than at the end of the job: if signing or the
+      # lint below fails, the next run should still start warm.
+      - name: Save the SwiftPM build directory
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            .build
+            !.build/out/ModuleCache.noindex
+            !.build/out/SDKStatCaches.noindex
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ steps.build-cache.outputs.cache-primary-key }}
+
+      - name: Bundle
+        run: make bundle
+
+      # Ad-hoc, because there is no Apple Developer account: SIGN_IDENTITY=- forces the branch
+      # of scripts/sign.sh that does not need a certificate in the runner's keychain. Both
+      # branches pass `--options runtime` and the same entitlements, so this does exercise the
+      # hardened-runtime flags — what it cannot exercise is a real Developer ID signature, a
+      # notarised build, or whether TCC grants survive a rebuild, all of which need a signing
+      # identity and a logged-in Mac.
+      - name: Sign (ad-hoc)
+        run: SIGN_IDENTITY=- make sign
+
+      - name: Verify the signature and its entitlements
+        run: |
+          set -euo pipefail
+          codesign --verify --strict --verbose=2 build/Worklens.app
+          # A silently dropped Apple Events entitlement is the failure #64 spent a day on:
+          # without it the hardened runtime refuses every Apple event and the browser-URL
+          # consent dialog never even appears.
+          #
+          # Read the entitlements once, then log and test that string separately (#198). Piping
+          # into `grep -q` made the step fail exactly when the check succeeded quickly: grep
+          # exits on the first match, the writer upstream takes SIGPIPE, and `pipefail` turns
+          # that into a red step with the entitlement plainly present in the log.
+          entitlements=$(codesign -d --entitlements - --xml build/Worklens.app 2>/dev/null \
+            | plutil -p -)
+          printf '%s\n' "$entitlements" >&2
+          grep -q 'com.apple.security.automation.apple-events' <<<"$entitlements"
+
+      - name: Run the bundled binary
+        run: ./build/Worklens.app/Contents/MacOS/Worklens version
+
+      # No API keys, no .env anywhere: the CLI has to describe the configuration it *would* use
+      # rather than trap. Safe to print because ConfigDumpCommand masks every secret.
+      - name: config-dump with an empty environment
+        run: env -i HOME="$HOME" PATH=/usr/bin:/bin ./build/Worklens.app/Contents/MacOS/Worklens config-dump
+
+      # TODO(#123 follow-up): 45 k lines have never been through a formatter, so this reports
+      # roughly 3.4 k violations today and is advisory. Flip `continue-on-error` off in the same
+      # pull request that runs `make format` over the tree.
+      - name: swift-format lint (advisory until the tree is formatted)
+        continue-on-error: true
+        run: make format-check
+
+      # ditto, not a bare directory upload: actions/upload-artifact zips what it is given and
+      # drops the executable bit and the symlinks a bundle is made of, so the downloaded .app
+      # would not launch. A ditto archive survives the round trip intact, signature included.
+      - name: Archive the app
+        run: ditto -c -k --keepParent build/Worklens.app build/Worklens.zip
+
+      # Only the bundle. Never `data/`, never `.env`, never the App Support directory — a CI
+      # artifact is a public-ish URL and this app's working files are the user's screen.
+      #
+      # It is ad-hoc signed and un-notarized (there is no Apple Developer account), so a reviewer
+      # who downloads it has to clear the quarantine attribute — `xattr -dr com.apple.quarantine
+      # Worklens.app` — and its Screen Recording grant will not survive the next build.
+      - name: Upload the app
+        uses: actions/upload-artifact@v7
+        with:
+          name: Worklens.app
+          path: build/Worklens.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  secrets:
+    name: Secret scan
+    # Linux, not macOS: this job needs no toolchain and macOS minutes bill at 10x.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # `gitleaks detect` walks git history, so a shallow clone would scan almost nothing.
+          fetch-depth: 0
+      # The released binary, pinned, rather than gitleaks/gitleaks-action@v2, which asks
+      # organisation-owned repositories for a GITLEAKS_LICENSE. Bump GITLEAKS_VERSION by hand;
+      # Dependabot does not track a plain download.
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        run: |
+          set -euo pipefail
+          url="https://github.com/gitleaks/gitleaks/releases/download"
+          curl -sSfL "$url/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+      - name: Scan the full history
+        run: gitleaks detect --source . --config .gitleaks.toml --redact --no-banner --verbose

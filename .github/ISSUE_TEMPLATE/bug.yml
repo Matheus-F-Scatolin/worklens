@@ -1,0 +1,89 @@
+name: Bug report
+description: Something Worklens does that it should not, or does not do that it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Before you paste anything:** Worklens handles screenshots, window titles and browser
+        URLs. `worklens config-dump` masks API keys, but nothing masks a screenshot or a window
+        title. Redact before pasting, and if the report only reproduces with real screen
+        contents, send it privately instead — `SECURITY.md` in this repository says how.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: |
+        The smallest sequence that shows it. A CLI reproduction is worth ten GUI ones —
+        `swift run Worklens capture-once`, `describe-pending`, `timeline --date …`.
+      placeholder: |
+        1. …
+        2. …
+    validations:
+      required: true
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "15.1 (Apple silicon)"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Worklens version
+      description: The version row in the menu, or `build/Worklens.app/Contents/MacOS/Worklens version`.
+      placeholder: "#105 · 0ae882e · updated 3 hours ago"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: signing
+    attributes:
+      label: How is it signed?
+      description: '`codesign -dv build/Worklens.app` says, or `make sign` prints it.'
+      options:
+        - '"Worklens Dev" certificate'
+        - Ad-hoc (no certificate on this Mac)
+        - Not signed / not bundled: running from `swift run`
+        - Not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: permissions
+    attributes:
+      label: Permissions granted in System Settings → Privacy & Security
+      options:
+        - label: Screen Recording
+        - label: Accessibility
+        - label: Automation → the browser you use
+        - label: Full Disk Access (only needed for the Granola source)
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Output of `worklens config-dump`
+      description: Keys are masked by this command. Trim anything else you would rather not share.
+      render: text
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      description: |
+        `log show --predicate 'subsystem == "dev.worklens.app"' --last 30m --info`, or
+        `build/update.log` for an update that failed. Screenshot contents and titles are never
+        logged above debug level, but read what you paste anyway.
+      render: text

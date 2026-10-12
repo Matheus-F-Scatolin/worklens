@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 524" width="960" height="524"
+     role="img" aria-labelledby="title desc">
+  <title id="title">What Worklens keeps on your Mac and what it sends away</title>
+  <desc id="desc">Capture, describe and timeline all run in one folder on your Mac.
+    Only one thing leaves it: per frame, the focused window's redacted text and metadata (and a
+    JPEG only when that text did not cover the screen) go to Google's Gemini, which returns one
+    sentence and a task label. The screenshots, the database, the meeting transcripts and the
+    logs never leave.</desc>
+
+  <!-- Written by hand, light and dark in one file, no build step. Edit the numbers, not a tool.
+       Every colour is a variable below; the dark block only re-points the variables. -->
+  <style>
+    :root {
+      --bg:        #FFFFFF;
+      --zone-fill: #F4F6FD;  --zone-line: #C7CEEC;
+      --card-fill: #FFFFFF;  --card-line: #D7DBEE;
+      --ink:       #1D2340;  --ink-soft:  #4A5170;  --ink-faint: #5A628C;
+      --note-ink:  #3C4260;
+      --arrow:     #737BAE;
+      --gem-fill:  #EEF4FF;  --gem-line:  #B9CCEE;  --gem-ink:  #24457F;
+      --foot-fill: #F7F8FA;  --foot-line: #DDE0EA;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:        #0D1117;
+        --zone-fill: #161B22;  --zone-line: #333B4D;
+        --card-fill: #0D1117;  --card-line: #333B4D;
+        --ink:       #E6EDF3;  --ink-soft:  #B7BFD8;  --ink-faint: #9AA4C4;
+        --note-ink:  #C2C9DE;
+        --arrow:     #8B95C9;
+        --gem-fill:  #12233F;  --gem-line:  #2C4A7A;  --gem-ink:  #9EC1FF;
+        --foot-fill: #12161D;  --foot-line: #2B303B;
+      }
+    }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .zone  { font-size: 15px; font-weight: 600; fill: var(--ink); }
+    .zsub  { font-size: 11.5px; fill: var(--ink-faint); }
+    .step  { font-size: 13.5px; font-weight: 600; fill: var(--ink); }
+    .body  { font-size: 11.5px; fill: var(--ink-soft); }
+    .wire  { font-size: 10.5px; fill: var(--ink-faint); }
+    .out   { font-size: 13.5px; font-weight: 600; }
+    .note  { font-size: 12px; fill: var(--note-ink); }
+    .arrow { stroke: var(--arrow); stroke-width: 1.6; fill: none; }
+    .head  { fill: var(--arrow); stroke: none; }
+    .bg    { fill: var(--bg); }
+    .zonebox { fill: var(--zone-fill); stroke: var(--zone-line); }
+    .card    { fill: var(--card-fill); stroke: var(--card-line); }
+    .gembox  { fill: var(--gem-fill);  stroke: var(--gem-line); }
+    .gemink  { fill: var(--gem-ink); }
+    .footbox { fill: var(--foot-fill); stroke: var(--foot-line); }
+  </style>
+  <defs>
+    <marker id="head" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path class="head" d="M0 0 L7 3.5 L0 7 z"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="960" height="524"/>
+
+  <!-- ── Your Mac ─────────────────────────────────────────────────────────── -->
+  <rect class="zonebox" x="20" y="20" width="480" height="394" rx="18"/>
+  <text class="zone" x="40" y="50">Your Mac</text>
+  <text class="zsub" x="40" y="70">one folder — no server, no account, nothing to log into</text>
+
+  <rect class="card" x="40" y="96" width="420" height="58" rx="10"/>
+  <text class="step" x="58" y="118">1 · Capture</text>
+  <text class="body" x="58" y="138">the focused window every 60 s — app, title, optional tab URL,</text>
+  <text class="body" x="58" y="152">its own text, and a JPEG only when that text fell short</text>
+
+  <rect class="card" x="40" y="172" width="420" height="58" rx="10"/>
+  <text class="step" x="58" y="194">2 · Describe</text>
+  <text class="body" x="58" y="214">one sentence and one task label per frame, from a frozen</text>
+  <text class="body" x="58" y="228">hand-edited taxonomy — the only stage that sends an image</text>
+
+  <rect class="card" x="40" y="248" width="420" height="58" rx="10"/>
+  <text class="step" x="58" y="270">3 · Timeline</text>
+  <text class="body" x="58" y="290">consecutive frames doing the same thing collapse into blocks,</text>
+  <text class="body" x="58" y="304">written as plain Markdown you can read without the app</text>
+
+  <rect class="card" x="40" y="324" width="420" height="58" rx="10"/>
+  <text class="step" x="58" y="346">All of it lives in data/</text>
+  <text class="body" x="58" y="366">one SQLite file and Markdown. Pause with ⌥⇧P; delete the last</text>
+  <text class="body" x="58" y="380">ten minutes, an hour or a date range from the menu.</text>
+
+  <path class="arrow" marker-end="url(#head)" d="M70 154 L70 170"/>
+  <path class="arrow" marker-end="url(#head)" d="M70 230 L70 246"/>
+  <path class="arrow" marker-end="url(#head)" d="M70 306 L70 322"/>
+
+  <!-- ── What leaves ──────────────────────────────────────────────────────── -->
+  <rect class="gembox" x="620" y="160" width="320" height="92" rx="12"/>
+  <text class="out gemink" x="638" y="184">Google · Gemini 3.5 Flash-Lite</text>
+  <text class="body" x="638" y="206">the focused window's redacted text, the app,</text>
+  <text class="body" x="638" y="222">title, URL and timestamp around it, and a JPEG</text>
+  <text class="body" x="638" y="238">only when that text did not cover the screen</text>
+
+  <path class="arrow" marker-end="url(#head)" d="M460 188 L616 188"/>
+  <text class="wire" x="538" y="180" text-anchor="middle">per frame worth describing</text>
+  <path class="arrow" marker-end="url(#head)" d="M616 218 L464 218"/>
+  <text class="wire" x="538" y="236" text-anchor="middle">a sentence and a task label</text>
+
+  <!-- ── What never leaves ────────────────────────────────────────────────── -->
+  <rect class="footbox" x="20" y="436" width="920" height="68" rx="12"/>
+  <text class="note" x="40" y="462"><tspan font-weight="600">Never leaves your Mac:</tspan> the screenshots themselves · the SQLite database · meeting transcripts from the integrations · the logs, which</text>
+  <text class="note" x="40" y="482">never carry a window title, URL or key above debug. No analytics, no crash reporting, no identifier, and nothing that reaches the author of this software.</text>
+</svg>

@@ -1,0 +1,24 @@
+# gitleaks configuration for Worklens.
+#
+# The repository has never held a real credential — `.env` is gitignored and every key in the
+# tree is a deliberately fake literal a test asserts against ("sk-ant-…", "AIzaSy…"). A full
+# history scan on 2026-09-12 (117 commits, gitleaks 8.30.1) found nothing with or without the
+# allowlist below: the fixtures are short enough not to match gitleaks' own patterns. It is here
+# so that a *longer* fake key added to a test later does not turn the job red.
+#
+# Allowlisted by *path*, never by key string. Allowlisting the literal would also allowlist a
+# real key that happened to start the same way, which is the failure this job exists to catch.
+title = "Worklens"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fixture and test credentials, plus the audit notes that quote them"
+paths = [
+  '''^Tests/''',
+  '''^evals/tests/''',
+  '''^docs/history/''',
+  '''^docs/reviews/''',
+  '''^\.env\.example$''',
+]

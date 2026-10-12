@@ -1,0 +1,51 @@
+name: Feature request
+description: Something Worklens should do
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Worklens is a personal optimization tool, not a surveillance or productivity-scoring
+        tool. Requests that rank, grade or compare people — or that would let someone watch
+        someone else's screen — will be closed, however well implemented.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is the problem?
+      description: The situation you are in when you want this, not the solution you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What should happen instead
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the app?
+      options:
+        - Capture (screenshots, scheduling, blocklists)
+        - Describe (the vision model, taxonomy, timeline)
+        - Reports (daily, weekly, stats)
+        - Menu bar and Settings
+        - Context sources (Granola, Slack, Google)
+        - CLI or MCP server
+        - Privacy and cost controls
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: privacy
+    attributes:
+      label: What would this capture, keep or send that Worklens does not already?
+      description: |
+        If the answer is "nothing", say so. If it is anything else, say what — that is usually the
+        part of the decision that matters.
+    validations:
+      required: true
