@@ -133,7 +133,7 @@ struct TourClickRingShape: View {
             .trim(from: 0, to: drawn)
             .stroke(ReaderTheme.accent, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
             .scaleEffect(1 + 0.07 * pulse)
-            .opacity(1 - 0.45 * pulse)
+            .opacity(Double(1 - 0.45 * pulse))
     }
 }
 
