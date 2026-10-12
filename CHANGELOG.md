@@ -14,6 +14,8 @@ and opening a fresh empty one above it.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-12
+
 ### Added
 
 - **Open source onboarding: a sample week, a tour of it, and an install you can hand to Claude
