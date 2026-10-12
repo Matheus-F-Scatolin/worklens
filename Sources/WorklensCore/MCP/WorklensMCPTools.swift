@@ -40,12 +40,15 @@ public enum WorklensMCPTools {
         taxonomy: TaxonomyStore,
         timeZone: TimeZone = .current
     ) -> MCPToolRegistry {
-        MCPToolRegistry(
+        // Defence in depth: titles and meeting text are redacted before they are stored or
+        // rendered, and once more here, on the way out, for rows written by an older build.
+        let redactor = TextRedactor(config: config)
+        return MCPToolRegistry(
             [
-                searchTool(db: db, taxonomy: taxonomy, timeZone: timeZone),
+                searchTool(db: db, taxonomy: taxonomy, timeZone: timeZone, redactor: redactor),
                 timelineTool(config: config, db: db, taxonomy: taxonomy, timeZone: timeZone),
                 statsTool(db: db, taxonomy: taxonomy, timeZone: timeZone, config: config),
-                contextEventsTool(db: db, taxonomy: taxonomy, timeZone: timeZone),
+                contextEventsTool(db: db, taxonomy: taxonomy, timeZone: timeZone, redactor: redactor),
                 daysTool(db: db, taxonomy: taxonomy),
                 nowTool(db: db, taxonomy: taxonomy, timeZone: timeZone),
                 spanTool(db: db, taxonomy: taxonomy, timeZone: timeZone, config: config),
@@ -64,7 +67,9 @@ public enum WorklensMCPTools {
 
     // MARK: - search
 
-    static func searchTool(db: Database, taxonomy: TaxonomyStore, timeZone: TimeZone) -> MCPTool {
+    static func searchTool(
+        db: Database, taxonomy: TaxonomyStore, timeZone: TimeZone, redactor: TextRedactor = TextRedactor()
+    ) -> MCPTool {
         MCPTool(
             name: "search",
             title: "Search your screen history",
@@ -121,7 +126,8 @@ public enum WorklensMCPTools {
             }
             let scope = days == 0 ? "all recorded days" : "the last \(days) day(s)"
             return "\(results.hits.count) hit(s) for \(query.debugDescription)\(narrowed) in \(scope).\(dropped)\n\n"
-                + results.hits.map { line(for: $0, timeZone: timeZone) }.joined(separator: "\n\n")
+                + results.hits.map { line(for: $0, timeZone: timeZone, redactor: redactor) }
+                .joined(separator: "\n\n")
         }
     }
 
@@ -133,13 +139,16 @@ public enum WorklensMCPTools {
         return parts.isEmpty ? "" : " in \(parts.joined(separator: " and "))"
     }
 
-    private static func line(for hit: SearchHit, timeZone: TimeZone) -> String {
-        let place = [hit.appName ?? hit.appKey, hit.windowTitle ?? hit.urlHost]
+    /// The window title and the snippet go through `redactor`: a row an older build wrote may
+    /// still hold a title as it was read.
+    private static func line(for hit: SearchHit, timeZone: TimeZone, redactor: TextRedactor) -> String {
+        let title = redactor.redactIfPresent(hit.windowTitle).text
+        let place = [hit.appName ?? hit.appKey, title ?? hit.urlHost]
             .compactMap { $0 }
             .filter { !$0.isEmpty }
         let head = ([clock(timeZone).string(from: hit.capturedAt)] + place).joined(separator: " · ")
             + (hit.frames > 1 ? "  (\(hit.frames) frames)" : "")
-        return "\(head)\n  day: \(hit.day)\n  \(hit.kind.rawValue): \(oneLine(hit.snippet))"
+        return "\(head)\n  day: \(hit.day)\n  \(hit.kind.rawValue): \(oneLine(redactor.redact(hit.snippet).text))"
     }
 
     // MARK: - timeline
@@ -249,7 +258,9 @@ public enum WorklensMCPTools {
 
     // MARK: - context_events
 
-    static func contextEventsTool(db: Database, taxonomy: TaxonomyStore? = nil, timeZone: TimeZone) -> MCPTool {
+    static func contextEventsTool(
+        db: Database, taxonomy: TaxonomyStore? = nil, timeZone: TimeZone, redactor: TextRedactor = TextRedactor()
+    ) -> MCPTool {
         MCPTool(
             name: "context_events",
             title: "Meetings",
@@ -334,7 +345,10 @@ public enum WorklensMCPTools {
             }
             return "\(events.count) event(s) between \(from) and \(to).\n\n"
                 + events.map {
-                    block(for: $0, company: companies[$0.id], timeZone: timeZone, withBody: !outcomesOnly)
+                    block(
+                        for: $0.redacted(with: redactor), company: companies[$0.id],
+                        timeZone: timeZone, withBody: !outcomesOnly
+                    )
                 }
                 .joined(separator: "\n\n")
         }
@@ -360,6 +374,8 @@ public enum WorklensMCPTools {
         "  company: \(company.key == nil ? "none" : company.name ?? company.key ?? "none") · rule: \(company.rule.rawValue)"
     }
 
+    /// `event` arrives redacted (`ContextEvent.redacted`): its title, body and outcomes were
+    /// typed by somebody else and stored as synced.
     private static func block(
         for event: ContextEvent, company: MeetingCompany? = nil, timeZone: TimeZone, withBody: Bool = true
     ) -> String {

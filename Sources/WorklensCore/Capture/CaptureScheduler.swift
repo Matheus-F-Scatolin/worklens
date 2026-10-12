@@ -243,7 +243,7 @@ public final class CaptureScheduler: ObservableObject {
     ) {
         self.config = config
         self.database = db
-        self.store = CaptureStore(db)
+        self.store = CaptureStore(db, redactor: TextRedactor(config: config))
         self.coverageEvents = CoverageEventStore(db)
         self.axSnapshots = AXSnapshotStore(db)
         self.capture = capture

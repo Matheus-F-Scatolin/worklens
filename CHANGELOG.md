@@ -272,6 +272,21 @@ follows from that, and nothing is deleted on upgrade: no table is dropped (`repo
 
 ### Fixed
 
+- **A credential in a window title is no longer stored, searchable or returned to an assistant.**
+  The title, the address and the context signature are now redacted before the row is written and
+  indexed, not only on the way into the describe prompt, so `search` over MCP returns
+  `password=[PASSWORD]` rather than the password. The database is repaired once when it is next
+  opened: stored titles, addresses, block headings and window outlines, and their search entries,
+  go through the redactor, and `search` redacts what it returns as well.
+- **More credential shapes are redacted.** JSON and YAML pairs (`"password":"…"`,
+  `password: …`), prefixed keys (`DB_PASSWORD=`), the value of a key that names a credential
+  (`api_key`, `client_secret`, `aws_secret_access_key`, `GITHUB_TOKEN`, `"private_key":` and the
+  like, eight characters or more) and the `user:password@` part of an address, in text and in the
+  stored browser URL. Prose such as `Token: expired` is left as it was.
+- **Meeting titles, bodies and outcomes are redacted before they leave the app.** A calendar or
+  Granola title goes through the redactor before it enters the describe prompt, and
+  `context_events`, the timeline and meeting blocks redact the title, the body and the next steps
+  and decisions before cutting or returning them.
 - **A fresh one-line install keeps its data in Application Support, not in the git checkout.**
   `setup.sh --yes` no longer copies `.env.example` into the clone, and `scripts/launch.sh` never
   points an installed app at a checkout's `.env`, so the first launch writes the app's own

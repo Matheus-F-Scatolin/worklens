@@ -109,10 +109,108 @@ struct TextRedactorTests {
         let title = redactor.redact("db.sh — senha=hunter2 — Terminal")
         #expect(title.text == "db.sh — senha=[PASSWORD] — Terminal")
         #expect(title.counts == [.password: 1])
+        // The userinfo goes whole; a scheme other than http(s) keeps its query, so the key in
+        // it is what redacts the value.
         #expect(redactor.redact("postgres://app:x@h/db?password=s3cr3t!").text
-            == "postgres://app:x@h/db?password=[PASSWORD]")
+            == "postgres://h/db?password=[PASSWORD]")
         // A password rule beats the card rule on the same span: the key says what it is.
         #expect(redactor.redact("pwd=4111111111111111").text == "pwd=[PASSWORD]")
+    }
+
+    @Test("JSON and YAML credentials lose their value (security review #3)")
+    func jsonAndYAMLPasswords() {
+        let json = redactor.redact(#"{"user":"ana","password":"hunter2"}"#)
+        #expect(json.text == #"{"user":"ana","password":[PASSWORD]}"#)
+        #expect(json.counts == [.password: 1])
+        #expect(redactor.redact(#"{"password": "hunter2", "port": 5432}"#).text
+            == #"{"password": [PASSWORD], "port": 5432}"#)
+        #expect(redactor.redact("{'passwd': 'hunter2'}").text == "{'passwd': [PASSWORD]}")
+        #expect(redactor.redact("password: hunter2").text == "password: [PASSWORD]")
+        #expect(redactor.redact("  db_password:\thunter2\n  host: db").text
+            == "  db_password:\t[PASSWORD]\n  host: db")
+        #expect(redactor.redact("DB_PASSWORD=hunter2").text == "DB_PASSWORD=[PASSWORD]")
+        #expect(redactor.redact("mysql --password=hunter2 app").text == "mysql --password=[PASSWORD] app")
+        #expect(redactor.redact(#"{"pin":1,"password":12345}"#).text == #"{"pin":1,"password":[PASSWORD]}"#)
+        // A label at the end of a line takes nothing from the next one.
+        #expect(redactor.redact("Password:\nForgot it?").text == "Password:\nForgot it?")
+    }
+
+    @Test("credential assignment names lose their value (security review #3)")
+    func credentialAssignments() {
+        let aws = "aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        #expect(redactor.redact(aws).text == "aws_secret_access_key=[SECRET_1]")
+        #expect(redactor.redact(aws).counts == [.secret: 1])
+        #expect(redactor.redact("aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY").text
+            == "aws_secret_access_key = [SECRET_1]")
+        let cases: [(String, String)] = [
+            ("client_secret: 8f2b1c9d4e7a6f30", "client_secret: [SECRET_1]"),
+            (#""api_key": "q8Zt4mW2pX9vL1nB""#, #""api_key": [SECRET_1]"#),
+            ("GITHUB_TOKEN=abcdef0123456789abcdef", "GITHUB_TOKEN=[SECRET_1]"),
+            ("STRIPE_SECRET_KEY=rk_live_51H8abcdEFGH", "STRIPE_SECRET_KEY=[SECRET_1]"),
+            ("x-api-key: 0123456789abcdef", "x-api-key: [SECRET_1]"),
+            ("access_token=ya29.a0AfH6SMBxyz12", "access_token=[SECRET_1]"),
+            ("secret = 'correct horse battery'", "secret = [SECRET_1]"),
+            (#"{"private_key_id": "x", "private_key": "MIIEvQIBADANBgkq"}"#,
+             #"{"private_key_id": "x", "private_key": [SECRET_1]}"#),
+        ]
+        for (input, expected) in cases {
+            #expect(redactor.redact(input).text == expected, "\(input)")
+        }
+        // The same key twice keeps one number, and redacting again changes nothing.
+        let twice = redactor.redact("token=abcdefgh12345 then token=abcdefgh12345")
+        #expect(twice.text == "token=[SECRET_1] then token=[SECRET_1]")
+        #expect(redactor.redact(twice.text).text == twice.text)
+        #expect(redactor.redact("sk-live-9f8a7b6c5d4e3f2a1b api_key=[SECRET_1]").text
+            == "[SECRET_1] api_key=[SECRET_1]")
+    }
+
+    @Test("prose with a credential word in it stays readable")
+    func credentialWordsInProse() {
+        let kept = [
+            "Token: expired",
+            "secret: no",
+            "max_tokens=4096",
+            "The secret to good tests is small fixtures.",
+            "Forgot password?",
+            "Reset your password at the link below",
+            "token 1234 of 5000",
+            "keyboard: Magic Keyboard",
+            "password_hint=dog",
+        ]
+        for text in kept {
+            #expect(redactor.redact(text).text == text, "\(text)")
+        }
+        // A colon after "password" takes only the next word, never the line.
+        #expect(redactor.redact("password: reset link sent").text == "password: [PASSWORD] link sent")
+    }
+
+    @Test("a URL's userinfo is dropped in text, and its password counts (security review #3)")
+    func urlUserinfo() {
+        let result = redactor.redact("clone https://alice:hunter2@example.com/repo.git now")
+        #expect(result.text == "clone https://example.com/repo.git now")
+        #expect(result.counts == [.password: 1])
+        #expect(redactor.redact("https://alice:hunter2@example.com/").text == "https://example.com/")
+        #expect(redactor.redact("DATABASE_URL=postgres://app:s3cr3t@db.internal:5432/app").text
+            == "DATABASE_URL=postgres://db.internal:5432/app")
+        #expect(redactor.redact("mongodb+srv://u:p@cluster0.example.net").text == "mongodb+srv://cluster0.example.net")
+        // A user with no password is still not the address.
+        let user = redactor.redact("ssh://git@github.com/owner/repo")
+        #expect(user.text == "ssh://github.com/owner/repo")
+        #expect(user.isClean)
+        #expect(TextRedactor.stripURLQueries("https://a:b@x.example.com/p?q=1") == "https://x.example.com/p")
+        // An @ in a path, or an email address, is not userinfo.
+        for kept in ["https://example.com/@ana/post", "write to ana@example.com", "https://[::1]:8080/a"] {
+            #expect(redactor.redact(kept).text == kept, "\(kept)")
+        }
+    }
+
+    @Test("placeholders already in a text are counted when redacting it again")
+    func placeholderCounts() {
+        #expect(TextRedactor.placeholderCounts(in: "[CARD_1] and [CARD_2], senha=[PASSWORD], [OTP]")
+            == [.card: 2, .password: 1, .otp: 1])
+        #expect(TextRedactor.placeholderCounts(in: "[AXStaticText] [x]").isEmpty)
+        let again = redactor.redact("Checkout — [CARD_1] — senha=[PASSWORD]")
+        #expect(again.countsWithPlaceholders == [.card: 1, .password: 1])
     }
 
     @Test("REDACT_EXTRA_PATTERNS adds a kind of its own")

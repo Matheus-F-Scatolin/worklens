@@ -96,16 +96,21 @@ public enum BrowserRegistry {
         public let host: String?
     }
 
-    /// Strips the fragment always and the query unless `storeQuery`, and lowercases the host.
+    /// Strips the userinfo and the fragment always and the query unless `storeQuery`, and
+    /// lowercases the host.
     ///
     /// Query strings are dropped by default because they carry access tokens, search terms and
-    /// message ids — the things a timeline has no business remembering.
+    /// message ids — the things a timeline has no business remembering. The userinfo
+    /// (`https://alice:hunter2@example.com/`) is a credential whenever it holds a password, so it
+    /// is never kept.
     public static func normalize(_ raw: String?, storeQuery: Bool = false) -> NormalizedURL? {
         guard let raw, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               var components = URLComponents(string: raw.trimmingCharacters(in: .whitespacesAndNewlines))
         else { return nil }
 
         components.fragment = nil
+        components.user = nil
+        components.password = nil
         if !storeQuery { components.query = nil }
         if let host = components.host { components.host = host.lowercased() }
         components.scheme = components.scheme?.lowercased()

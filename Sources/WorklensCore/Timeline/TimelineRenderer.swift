@@ -562,7 +562,8 @@ public enum TimelineRenderer {
 
     /// What happened off-screen: the meetings Granola and your calendar recorded.
     ///
-    /// Only ever the short form. Transcripts live in files and stay there.
+    /// Only ever the short form. Transcripts live in files and stay there. Titles, bodies and
+    /// outcomes are redacted (`ContextEvent.redacted`) before they are cut to length.
     static func contextSection(_ events: [ContextEvent], timeZone: TimeZone) -> [String] {
         let ordered = events.sorted { $0.startAt < $1.startAt }
         // Deduplicated the same way the meeting blocks are, so the Context list and the blocks
@@ -571,7 +572,7 @@ public enum TimelineRenderer {
         guard !meetings.isEmpty else { return [] }
 
         var lines = ["", "## Context", "", "Meetings (\(meetings.count)):"]
-        for meeting in meetings {
+        for meeting in meetings.map({ $0.redacted() }) {
             let span = "\(clock(meeting.startAt, timeZone))-\(clock(meeting.effectiveEndAt, timeZone))"
             let excerpt = ContextBody.oneLine(meeting.bodyMd, limit: 200).map { ": \($0)" } ?? ""
             lines.append("- \(span) [\(meeting.source.rawValue)] \(meeting.title ?? "untitled")\(excerpt)")
