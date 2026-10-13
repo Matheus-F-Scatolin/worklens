@@ -8,6 +8,15 @@
 your day actually went.**
 
 <p align="center">
+  <a href="https://youtu.be/uIpF8Qte71A">
+    <img src="https://img.youtube.com/vi/uIpF8Qte71A/maxresdefault.jpg" width="760"
+         alt="Watch the Worklens demo on YouTube.">
+  </a>
+  <br>
+  <sub><a href="https://youtu.be/uIpF8Qte71A">Watch the demo on YouTube</a></sub>
+</p>
+
+<p align="center">
   <img src="docs/media/today.png" width="760"
        alt="The Today page: a waterfall of the day's active time by app, ending in the day's total.">
 </p>
