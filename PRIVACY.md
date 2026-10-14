@@ -189,6 +189,12 @@ optional page rather than being the first thing a new install does. An install t
 running is never shown the window and never stops capturing. The menu and Settings → Advanced →
 **Show welcome again** re-open it.
 
+**Your first summary is quoted once, in a notification.** When notifications are allowed, the
+one "Your day has started." banner quotes the first summary Worklens stored, so macOS keeps that
+one sentence in Notification Center until you clear it. It is the stored summary only, never
+read from the window's title or address; a summary that names a web address, or one the model
+marked sensitive, is not quoted, and the quote is never written to the log.
+
 ## What it never records
 
 - **Audio.** Nothing in Worklens opens a microphone.

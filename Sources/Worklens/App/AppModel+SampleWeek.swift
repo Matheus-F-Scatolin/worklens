@@ -62,7 +62,11 @@ extension AppModel {
             sampleWeekHandedOff = true
             try? AppStateStore(db).setDate(SampleWeekHandoff.Key.handedOffAt, Date())
             Log.ui.info("sample week: your first summaries arrived while closed; handing over")
-            postSampleWeekBanner()
+            // At launch the notification status is not read yet: read it before deciding.
+            Task { [weak self] in
+                await self?.refreshNotificationStatus()
+                self?.postSampleWeekBanner()
+            }
             removeSampleFolderIfHandedOff()
         case .stayClosed:
             sampleWeekHandedOff = false
@@ -172,12 +176,16 @@ extension AppModel {
     }
 
     /// "Your day has started.": one banner, and if notifications are off nothing else, no menu
-    /// notice and no nag.
+    /// notice and no nag. Its body quotes your first summary, so the first thing Worklens tells
+    /// you after the welcome is what it saw; a click opens the Today page. The quote is the
+    /// stored summary, never a window title or a URL, and it is never logged: only the title is.
     private func postSampleWeekBanner() {
+        let summary = db.flatMap(SampleWeekHandoff.firstSummary)
         postBanner(
             title: SampleWeekCopy.startedTitle,
-            body: SampleWeekCopy.startedBody,
+            body: SampleWeekCopy.startedBody(quoting: summary),
             identifier: Notifier.sampleWeekHandoff,
+            category: Notifier.todayCategory,
             mirrorAsNotice: false
         )
     }
