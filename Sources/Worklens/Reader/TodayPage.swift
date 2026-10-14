@@ -11,10 +11,14 @@ struct TodayPage: View {
             VStack(spacing: 12) {
                 header
                 if let chart = model.readerDocument?.waterfall {
-                    facts(chart)
-                    WaterfallChart(chart: chart, dayKey: dayKey)
-                        .tourAnchor(.timeline)
-                        .padding(.top, 30)
+                    VStack(spacing: 12) {
+                        facts(chart)
+                        WaterfallChart(chart: chart, dayKey: dayKey)
+                            .tourAnchor(.timeline)
+                            .padding(.top, 30)
+                    }
+                    .opacity(model.readerIsTurning ? ReaderTheme.turningOpacity : 1)
+                    .animation(.easeOut(duration: 0.15), value: model.readerIsTurning)
                 } else if model.readerLoading {
                     ProgressView().padding(.top, 80)
                 } else {

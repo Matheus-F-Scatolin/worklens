@@ -129,7 +129,7 @@ The menu is one line of status, one tally, and at most one row asking to be fixe
 there) opens the window where you read your days. It has two pages, one icon each down its left
 edge. **Today** is the day so far as one chart: the time each app had on screen, the time in
 meetings, and what that adds up to. **Weeks** is the week as a grid of what you worked on, half
-an hour at a time. ⌘← and ⌘→ step to the day or the week before and after. Nothing in this window
+an hour at a time. ← and → (or ⌘← and ⌘→) step to the day or the week before and after. Nothing in this window
 calls a model, and an open page keeps itself up to date about once a minute.
 
 ## The tour

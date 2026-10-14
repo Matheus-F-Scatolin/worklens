@@ -1586,7 +1586,12 @@ reads — a date window is served by `idx_captures_captured_at`, while a bare `L
 across the page boundary and stops at `ReaderPaging.oldestRecordedDay`. The minute refresh does
 not rebuild whatever is open: `ReaderTick.decide` is a pure function over the open selection
 and today — it rebuilds the open page only when
-that page holds today — asserted in `ReaderTests` without a window; `AppModel.swift` keeps only the stored state they publish, because
+that page holds today — asserted in `ReaderTests` without a window. **Stepping is served from
+`ReaderDocumentCache`** (2026-10-14): every built page is kept beside the index rows of the days
+it covers and served while they still match (and for at most ten minutes), the pages one step
+either side are built ahead after each load, and a step onto a page still being built ahead
+waits for that build (`readerBuilds`). The tick drops today's page and this week's; a sample-week
+swap drops everything. `StatsService.weekly` reads its seven days side by side; `AppModel.swift` keeps only the stored state they publish, because
 an extension holds no stored properties — which is also why none of it is `private` any more.
 
 **The sample week (#349, #350) is a second database the reader alone opens.**

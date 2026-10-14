@@ -19,6 +19,8 @@ enum ReaderTheme {
     static let active = dynamic(light: 0xE6E1D3, dark: 0x3A3935)
     static let accent = Color(hex: 0xD97757)
     static let totalBar = dynamic(light: 0x3D3D3A, dark: 0xE8E6DC)
+    /// The page being left, while the next one is built.
+    static let turningOpacity = 0.45
     /// Text on an app-coloured block, in both appearances.
     static let ink = Color(hex: AppPalette.ink)
     static let others = Color(hex: AppPalette.others)
