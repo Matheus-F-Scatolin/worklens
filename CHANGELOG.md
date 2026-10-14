@@ -15,6 +15,15 @@ and opening a fresh empty one above it.
 ## [Unreleased]
 
 ### Added
+- **One line removes Worklens.** `scripts/uninstall.sh`, also `make uninstall` and the same
+  `curl` line as the install, undoes what setup put on the Mac: it quits the app, takes only the
+  `worklens` server out of Claude Desktop's, Claude Code's and Codex's MCP settings (keeping a
+  copy of each file), resets the Screen Recording, Accessibility and Automation answers, and
+  removes the Google token, the "Worklens Dev" certificate with its trust setting, the app with
+  its preferences, the `worklens` command and the source checkout. It lists all of it first and
+  asks once; `--dry-run` changes nothing. Your data stays unless you type `delete` or pass
+  `--delete-data`, and `--yes` alone never deletes it. No sudo. See
+  [docs/user/setup.md](docs/user/setup.md#uninstall).
 - The one "Your day has started." notification after the welcome window now quotes your first
   summary, so you know capture, Screen Recording and the Gemini key all work without opening
   the timeline, and clicking it opens the Today page. It quotes the stored summary only, and
