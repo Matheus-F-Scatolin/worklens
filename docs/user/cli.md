@@ -89,7 +89,7 @@ today and yesterday at launch, and the Week page draws whatever activity blocks 
 
 `settings` never starts a second Worklens: it asks the copy that is already running to bring its
 window to the front on Settings, and says so when none is. `--tab` names the section to open on:
-`general`, `capture`, `privacy`, `log`, `connections`, `usage` or `advanced`. It is the developer's way back in when
+`general`, `capture`, `privacy`, `projects`, `connections`, `usage` or `advanced`. It is the developer's way back in when
 the menu-bar icon cannot be found — for everyone else, re-opening the app does the same thing,
 and Settings → General → **Keep Worklens in the Dock** is the permanent version
 ([troubleshooting.md](troubleshooting.md#i-cannot-find-the-menu-bar-icon)).

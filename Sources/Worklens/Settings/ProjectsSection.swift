@@ -1,11 +1,11 @@
 import SwiftUI
 import WorklensCore
 
-/// Settings → Log: the projects your time is grouped under, and "Learn from recent days".
+/// Settings → Projects: the projects your time is grouped under, and "Learn from recent days".
 ///
-/// It was Settings → Reports (#286) until the reports were cut (2026-10-05). The Language picker
-/// moved to Capture, because it sets the language each summary is written in.
-struct LogSection: View {
+/// It was Settings → Reports (#286) until the reports were cut (2026-10-05), then Settings → Log.
+/// The Language picker moved to Capture, because it sets the language each summary is written in.
+struct ProjectsSection: View {
     @ObservedObject var model: AppModel
 
     var body: some View {

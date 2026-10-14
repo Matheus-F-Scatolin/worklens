@@ -19,8 +19,9 @@ public enum SettingsSection: String, Sendable, CaseIterable, Equatable, Hashable
     /// The one "Never look at" list, what is kept, and deleting a range.
     case privacy
     /// The projects your time is grouped under. It was Reports until the reports were cut
-    /// (2026-10-05); a stored `reports` still lands here, through `target(named:)`.
-    case log
+    /// (2026-10-05), then Log until it was named for what it holds; a stored `reports` or `log`
+    /// still lands here, through `target(named:)`.
+    case projects
     /// The AI provider, Claude as a client of Worklens, and the context sources.
     case connections
     /// Today's spend against the budget, the last 30 days, and the disk.
@@ -40,7 +41,7 @@ public enum SettingsSection: String, Sendable, CaseIterable, Equatable, Hashable
         case .general: return L10n.string("General")
         case .capture: return L10n.string("Capture")
         case .privacy: return L10n.string("Privacy")
-        case .log: return L10n.string("Log")
+        case .projects: return L10n.string("Projects")
         case .connections: return L10n.string("Connections")
         case .usage: return L10n.string("Usage")
         case .advanced: return L10n.string("Advanced")
@@ -57,7 +58,7 @@ public enum SettingsSection: String, Sendable, CaseIterable, Equatable, Hashable
         case .capture: return .permissions
         case .privacy: return .privacy
         // The projects are configuration, and that page says which layer each one comes from.
-        case .log: return .configuration
+        case .projects: return .configuration
         case .connections: return .integrations
         case .usage: return .cost
         }
@@ -76,7 +77,7 @@ public enum SettingsAnchor: String, Sendable, CaseIterable, Equatable, Hashable 
     case assistants
     /// Connections → Sources.
     case sources
-    /// Log → Projects.
+    /// Projects → the list of projects.
     case projects
     /// General → the status line and the notices under it.
     case status
@@ -86,7 +87,7 @@ public enum SettingsAnchor: String, Sendable, CaseIterable, Equatable, Hashable 
         switch self {
         case .access: return .capture
         case .providers, .assistants, .sources: return .connections
-        case .projects: return .log
+        case .projects: return .projects
         case .status: return .general
         }
     }
@@ -123,8 +124,8 @@ extension SettingsSection {
     /// - `cost` → Usage (the budget and the spend). A route that is about a *key* names
     ///   `SettingsTarget(.providers)` itself; a bare stored `cost` cannot know which it meant.
     /// - `permissions` → Capture, on the Access card.
-    /// - `reports` and `projects` → Log, on the Projects list: Reports was this section's name
-    ///   until the reports were cut (2026-10-05).
+    /// - `reports` and `log` → Projects, on the list: Reports was this section's name until the
+    ///   reports were cut (2026-10-05), and Log after that.
     /// - `integrations` → Connections, on Sources; `assistant` → Connections, on the Claude rows.
     /// - `activity` → General, where the notices are now listed under the status line.
     public static func target(named text: String) -> SettingsTarget? {
@@ -133,7 +134,7 @@ extension SettingsSection {
         switch wanted {
         case "cost": return SettingsTarget(.usage)
         case "permissions": return SettingsTarget(.access)
-        case "reports", "projects": return SettingsTarget(.projects)
+        case "reports", "log": return SettingsTarget(SettingsAnchor.projects)
         case "integrations": return SettingsTarget(.sources)
         case "assistant": return SettingsTarget(.assistants)
         case "activity": return SettingsTarget(.status)

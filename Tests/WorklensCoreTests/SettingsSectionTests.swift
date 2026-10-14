@@ -11,7 +11,7 @@ struct SettingsSectionTests {
     @Test("six sections, then Advanced, in list order")
     func order() {
         #expect(SettingsSection.allCases.map(\.rawValue) == [
-            "general", "capture", "privacy", "log", "connections", "usage", "advanced",
+            "general", "capture", "privacy", "projects", "connections", "usage", "advanced",
         ])
         #expect(SettingsSection.primary == Array(SettingsSection.allCases.dropLast()))
         #expect(!SettingsSection.primary.contains(.advanced))
@@ -44,15 +44,17 @@ struct SettingsSectionTests {
     func legacyMapping() {
         #expect(SettingsSection.target(named: "cost") == SettingsTarget(.usage))
         #expect(SettingsSection.target(named: "permissions") == SettingsTarget(.capture, anchor: .access))
-        #expect(SettingsSection.target(named: "projects") == SettingsTarget(.log, anchor: .projects))
-        // Reports was the section's name until the cut (2026-10-05): a stored value still lands.
-        #expect(SettingsSection.target(named: "reports") == SettingsTarget(.log, anchor: .projects))
-        #expect(SettingsSection.restoring("reports") == .log)
+        // Reports was the section's name until the cut (2026-10-05), then Log: a stored value
+        // of either still lands, on the list.
+        #expect(SettingsSection.target(named: "reports") == SettingsTarget(.projects, anchor: .projects))
+        #expect(SettingsSection.restoring("reports") == .projects)
+        #expect(SettingsSection.target(named: "log") == SettingsTarget(.projects, anchor: .projects))
+        #expect(SettingsSection.restoring("log") == .projects)
         #expect(SettingsSection.target(named: "integrations")?.section == .connections)
         #expect(SettingsSection.target(named: "assistant")?.section == .connections)
         #expect(SettingsSection.target(named: "activity")?.section == .general)
-        // The four that kept their names keep their sections, with no row to light.
-        for kept in ["general", "capture", "privacy", "advanced"] {
+        // The five that are section names again keep their sections, with no row to light.
+        for kept in ["general", "capture", "privacy", "projects", "advanced"] {
             #expect(SettingsSection.target(named: kept) == SettingsTarget(SettingsSection(rawValue: kept)!))
         }
     }

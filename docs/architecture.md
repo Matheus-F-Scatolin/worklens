@@ -1401,11 +1401,11 @@ list on the `ReaderTheme.list` tone beside a 640 pt column — and the rail stay
 `ReaderPlace`: the rail's two places stay the reading places and `readerPlace` keeps the one you
 came from, so Esc (a local key monitor in `SettingsPage`, which stands down while a text field or
 the shortcut recorder has the key) is `closeSettings()` and nothing else. `SettingsSection`
-(`WorklensCore/UI/SettingsSection.swift`) is the list — general, capture, privacy, log,
+(`WorklensCore/UI/SettingsSection.swift`) is the list — general, capture, privacy, projects,
 connections, usage, then Advanced below a hairline, always shown — and `SettingsSection.target(named:)`
 folds every name the old eleven panes had into a `SettingsTarget` (a section and optionally a
 `SettingsAnchor` row to scroll to and flash): `cost` → Usage, `permissions` → Capture's Access
-card, `reports` / `projects` → Log (#298), `integrations` / `assistant` → Connections, `activity` → General. That
+card, `reports` / `log` → Projects (#298), `integrations` / `assistant` → Connections, `activity` → General. That
 is how an old `settings_tab` in `app_state`, `worklens settings --tab permissions` and a
 `SettingsReveal` from an older build all still land; `SettingsSectionTests` proves no old value is
 left unmapped. `AppModel.openSettings(_:)` is the one route in — the gear, ⌘, (a `CommandGroup`

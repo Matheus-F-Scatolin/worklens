@@ -2157,7 +2157,7 @@ final class AppModel: ObservableObject {
 
     /// Folds the last week's project hints into the Projects list, once per local day
     /// (`ProjectCatalog.learnIfDue`). It ran before each daily report until the reports were cut
-    /// (2026-10-05); Settings → Log's "Learn from recent days" still runs it by hand. A failure
+    /// (2026-10-05); Settings → Projects' "Learn from recent days" still runs it by hand. A failure
     /// is logged and tried again on the next pass.
     private func learnProjectsIfDue() {
         guard let catalog = projectCatalog else { return }
