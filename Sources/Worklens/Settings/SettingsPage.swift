@@ -194,7 +194,7 @@ struct SettingsSectionView: View {
         case .general: GeneralSection(model: model)
         case .capture: CaptureSection(model: model)
         case .privacy: PrivacySection(model: model)
-        case .log: LogSection(model: model)
+        case .projects: ProjectsSection(model: model)
         case .connections: ConnectionsSection(model: model)
         case .usage: UsageSection(model: model)
         case .advanced: AdvancedSection(model: model)

@@ -35,6 +35,9 @@ and opening a fresh empty one above it.
   Worklens was closed, and summaries from the offline fake no longer count as your first day.
 
 ### Changed
+- Settings → Log is now Settings → Projects, named for what it holds: the projects your time is
+  grouped under and **Learn from recent days**. `worklens settings --tab projects` opens it, and
+  `--tab log` still does.
 - Settings → General → Updates says whether a new version is available in plain words, with no
   branch or commit, and shows **Update and restart…** only when there is one. The confirmation is
   one line. The reader window opens at 1140 by 750 on a first launch instead of its minimum.
