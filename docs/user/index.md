@@ -6,7 +6,7 @@ what leaves the Mac.
 
 | Page | What it answers |
 |---|---|
-| [setup.md](setup.md) | requirements, the one-command install, the six steps only you can do, where the Gemini API key comes from |
+| [setup.md](setup.md) | requirements, the one-command install, the six steps only you can do, where the Gemini API key comes from, and the one-command uninstall |
 | [first-day.md](first-day.md) | minute 0 to the first full day: the welcome window, granting Screen Recording, what to expect in the first hour and tomorrow |
 | [permissions.md](permissions.md) | which permissions macOS asks for, why each one, and why it re-asks for Screen Recording monthly |
 | [configuration.md](configuration.md) | the six configuration layers, `worklens config`, and why `DATA_DIR` is the one key Worklens never writes for itself |

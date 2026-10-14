@@ -41,6 +41,9 @@ It names every step and asks once, then builds and installs Worklens into
 `~/Library/Application Support/Worklens/src` and opens it. Safe to re-run. Leave that folder
 where it is, or the app can no longer update itself.
 
+To remove it, the same line with `uninstall.sh` in place of `bootstrap.sh` lists what it found,
+asks once and keeps your data unless you say to delete it ([Uninstall](docs/user/setup.md#uninstall)).
+
 Or paste this into [Claude Code](https://claude.com/claude-code). It shows you the plan, waits
 for your yes, and never asks for your Gemini key:
 

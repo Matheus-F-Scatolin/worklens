@@ -198,3 +198,43 @@ The Gemini key can be typed in the app, and everything else comes from `.env` an
 file, resolved one key at a time through six layers. The order, the CLI that reads and writes
 them, and why `DATA_DIR` is the one key Worklens never writes for itself, are in
 [configuration.md](configuration.md).
+
+## Uninstall
+
+One line undoes the install. It lists everything it found, asks once, and keeps your data:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Matheus-F-Scatolin/worklens/main/scripts/uninstall.sh)"
+```
+
+Add `-- --dry-run` to the same line to read the list and change nothing. From a checkout,
+`make uninstall` runs the same script (`UNINSTALL_ARGS=--dry-run` for the list).
+
+Quit Claude Desktop first: while it is open it puts its old settings back, so the script leaves
+that file alone and says to run it again once Claude Desktop is closed. Then it removes, in this
+order, whatever of these it finds:
+
+- the running menu bar app
+- the `worklens` server in Claude Desktop's, Claude Code's and Codex's MCP settings, and only
+  that one, with a copy of the old file kept beside it
+- the Screen Recording, Accessibility and Automation answers macOS keeps for Worklens
+  (`tccutil reset`, no sudo)
+- the Google Calendar token in your keychain
+- the **Worklens Dev** signing certificate, its key and its trust setting; macOS may ask for your
+  password for the trust setting, and Cancel keeps the certificate
+- `Worklens.app` in `/Applications` or `~/Applications`, and its preferences and caches
+- the `worklens` command on your `PATH`, when it points at a Worklens.app
+- the source in `~/Library/Application Support/Worklens/src`, unless something in it is yours:
+  changes, files git ignores or commits that are not on GitHub (never deleted here), or a `.env`
+  or your data (deleted only with your data)
+
+**Your data stays.** The database, the screenshots, `settings.json` and the `.env` with your
+Gemini key stay in `~/Library/Application Support/Worklens`, and the script ends by saying so.
+To delete them as well, type `delete` when it asks, or run it with `-- --delete-data`; `--yes`
+on its own never deletes them. A `DATA_DIR` outside that folder is never deleted; the script
+names it instead.
+
+What it leaves to you: reopening Claude Desktop, Claude Code and Codex, checking System
+Settings → General → Login Items, removing Worklens at
+[myaccount.google.com/permissions](https://myaccount.google.com/permissions) if you connected
+Calendar, and deleting your Gemini key if nothing else uses it. Running it again is safe.
