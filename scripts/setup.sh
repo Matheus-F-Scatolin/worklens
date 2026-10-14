@@ -126,12 +126,19 @@ if (( DRY_RUN )); then echo "${DIM}dry run: nothing will be created, copied, sig
 # ------------------------------------------------------------------ 1. the toolchain
 
 step "Checking the toolchain"
+# A hard stop, unlike scripts/bootstrap.sh, which installs the tools itself before it gets here.
+# The two say the same thing about them: missing, broken, or too old, and what to do.
 if ! xcode-select -p >/dev/null 2>&1; then
-  echo "error: no developer tools — run 'xcode-select --install' and try again" >&2
+  echo "error: Apple's command line tools are not installed. Run 'xcode-select --install', let it finish, then run setup again." >&2
   exit 1
 fi
 detail "developer directory: $(xcode-select -p)"
 
+if ! swift -version >/dev/null 2>&1 </dev/null || ! git --version >/dev/null 2>&1 </dev/null; then
+  echo "error: Apple's command line tools are set up, but Swift or git does not run from them, so they look broken." >&2
+  echo "       docs/user/troubleshooting.md, \"The command line tools are broken\", says what to do; then run setup again." >&2
+  exit 1
+fi
 swift_version="$(swift -version 2>&1 | sed -n 's/.*Apple Swift version \([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -1)"
 if [[ -z "$swift_version" ]] || ! printf '6.1\n%s\n' "$swift_version" | sort -C -V; then
   echo "error: Package.swift needs Swift 6.1 or newer, found '${swift_version:-none}'" >&2

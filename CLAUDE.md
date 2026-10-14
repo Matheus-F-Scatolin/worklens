@@ -33,9 +33,13 @@ CONTRIBUTING.md and the rest of this file.
    login keychain, copied to `/Applications` and put on their `PATH`. Run the real command only
    after they say yes in chat. `--yes` stands in for the one question the script would have
    asked them on a terminal, so it is their answer, not yours.
-2. Before the real run, tell them what they will see on their screen during it: a macOS
-   authentication dialog to trust the "Worklens Dev" certificate, and maybe a keychain dialog
-   when the app is signed (**Always Allow**). Those are theirs to answer.
+2. Before the real run, tell them what they will see on their screen during it: first, when the
+   plan starts with installing Apple's command line tools, Apple's own dialog for them
+   (**Install**, then its license; about a gigabyte, and the script waits up to an hour for it);
+   then a macOS authentication dialog to trust the "Worklens Dev" certificate, and maybe a
+   keychain dialog when the app is signed (**Always Allow**). Those are theirs to answer. If
+   the script stops because the tools dialog was closed or the hour ran out, nothing else was
+   changed, and running the same command again is safe.
 3. Run the real command in the background and read its output as it goes. A first install
    clones, resolves packages, builds from clean and then waits on the dialogs above, which can
    take longer than a 10-minute foreground timeout on a slower Mac or while the person reads a

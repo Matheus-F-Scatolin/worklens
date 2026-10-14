@@ -29,6 +29,10 @@ and opening a fresh empty one above it.
 - Settings → General → Updates says whether a new version is available in plain words, with no
   branch or commit, and shows **Update and restart…** only when there is one. The confirmation is
   one line. The reader window opens at 1140 by 750 on a first launch instead of its minimum.
+- The one-line install no longer stops on a Mac without Apple's command line tools. It names them
+  in its plan, starts `xcode-select --install` once you say yes, waits for Apple's dialog and the
+  download, and carries on in the same run. Tools that are there but broken are reinstalled the
+  same way, and a closed dialog stops it with nothing else changed.
 
 ### Security
 - A capture is dropped when the focused app, window, tab or page changed at any point while it was
