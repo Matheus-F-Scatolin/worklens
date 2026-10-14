@@ -249,8 +249,26 @@ A first build needs a couple of gigabytes free for `.build`. Free some space and
 
 ### The command line tools are broken
 
-`xcrun: error: invalid active developer path` usually follows a macOS update. Run
-`xcode-select --install`, let it finish, and run setup again.
+`xcrun: error: invalid active developer path`, or Swift or git that will not run although
+`xcode-select -p` names a folder, usually follows a macOS update. The one-line install sees this
+and asks macOS to install the tools again: answer Apple's dialog, and it carries on by itself.
+From a checkout, run `xcode-select --install`, let it finish, and run setup again.
+
+If you closed Apple's dialog, or the install waited an hour with no tools, nothing else was
+changed: run the same line again when you are ready.
+
+When macOS answers that the tools are already installed, they cannot be installed over the top:
+
+1. Look in System Settings > General > Software Update for a Command Line Tools update, install
+   it, and run the line again.
+2. If `xcode-select -p` names an Xcode you have since deleted, `sudo xcode-select --reset` points
+   it back at the command line tools. If it names an Xcode you still have, open Xcode once, or run
+   `sudo xcodebuild -license`, to accept its license.
+3. Otherwise remove the broken copy, `sudo rm -rf /Library/Developer/CommandLineTools`, and run
+   the line again: it installs a fresh one.
+
+The commands in 2 and 3 ask for your password, so they are yours to run; the install itself never
+uses sudo.
 
 ### Swift could not download the packages
 

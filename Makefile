@@ -94,8 +94,9 @@ lint-strings:  ## Check the localization catalogs: every key the code asks for i
 lint-design:  ## Check the design rules: Theme literals, key names in copy, icon buttons
 	@scripts/design-lint.sh
 
-test-scripts:  ## Check scripts/build-progress.sh against captured builds and the troubleshooting anchors it links to, and scripts/uninstall.sh against a fake home
+test-scripts:  ## Check scripts/build-progress.sh against captured builds, bootstrap's toolchain step against stand-in tools, scripts/uninstall.sh against a fake home, and the troubleshooting anchors they link to
 	@scripts/build-progress-test.sh
+	@scripts/bootstrap-test.sh
 	@scripts/uninstall-test.sh
 
 check: format-check lint-strings lint-design test-scripts test  ## What CI runs: formatting, the catalogs, the design rules, the script checks, then the suite

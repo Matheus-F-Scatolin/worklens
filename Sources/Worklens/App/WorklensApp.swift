@@ -249,6 +249,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                     NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
                 }
             }
+        case Notifier.todayCategory:
+            await MainActor.run { AppModel.shared.openToday() }
         default:
             break
         }

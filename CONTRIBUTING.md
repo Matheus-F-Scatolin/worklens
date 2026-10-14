@@ -45,7 +45,7 @@ These are all of them — `make help` prints the same list.
 | `make format` | Rewrite `Sources` and `Tests` with `swift-format` |
 | `make format-check` | Report formatting violations without changing anything |
 | `make lint-strings` | Check the localization catalogs: `plutil -lint` on every `Resources/*.lproj`, and fail when a key the code asks for is missing from `en.lproj` |
-| `make test-scripts` | Check `scripts/build-progress.sh` against captured builds, that every troubleshooting anchor its failure report links to exists, and `scripts/uninstall.sh` against a fake home with stubbed `security`, `tccutil` and `pkill` |
+| `make test-scripts` | Check `scripts/build-progress.sh` against captured builds, `scripts/bootstrap.sh`'s command line tools step against stand-in tools, `scripts/uninstall.sh` against a fake home with stubbed `security`, `tccutil` and `pkill`, and that every troubleshooting anchor they link to exists |
 | `make check` | `format-check`, `lint-strings`, `lint-design`, `test-scripts`, then `test` |
 | `make doctor-toolchain` | Check the build toolchain — `make build` runs these first and never fails on them |
 | `make icon` | Re-render `Resources/AppIcon.icns`, the glyph previews and `docs/media/social-preview.png` from `WorklensMark.swift`; `ARGS=--banner` renders the social card alone. Uploading the card to the repository is the owner's step — see [docs/decisions.md](docs/decisions.md) → "Things only the user can do" |

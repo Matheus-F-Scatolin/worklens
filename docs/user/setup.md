@@ -7,7 +7,8 @@ Recording grant on every rebuild anyway. Building it is one command.
 ## Requirements
 
 - macOS 14 or later (Apple silicon or Intel)
-- A Swift 6.1+ toolchain — Xcode, or the Command Line Tools: `xcode-select --install`
+- A Swift 6.1+ toolchain — Xcode, or the Command Line Tools: `xcode-select --install` (the
+  one-line install below starts that for you)
 - A Gemini API key — [keys](#keys)
 
 ## Things only you can do
@@ -32,12 +33,13 @@ One line, on a Mac that has never seen Worklens:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Matheus-F-Scatolin/worklens/main/scripts/bootstrap.sh)"
 ```
 
-It checks macOS and the Swift toolchain first — if the command line tools are missing it says to
-run `xcode-select --install` and stops, downloading nothing on your behalf. Then it names every
-write in one block and waits for a single yes:
+It checks macOS and the Swift toolchain first, without changing anything. Then it names every
+write in one block and waits for a single yes. On a Mac without Apple's command line tools (most
+new Macs), that block starts with installing them:
 
 ```
 Worklens will:
+  • install Apple's command line tools (about a gigabyte), through Apple's own dialog
   • download its source to ~/Library/Application Support/Worklens/src
   • build it (a few minutes the first time, shown as one progress line)
   • create a certificate in your login keychain, so macOS remembers your permissions
@@ -46,6 +48,14 @@ Worklens will:
   • open Worklens, which starts on its welcome window
 Continue? [y/N]
 ```
+
+When the tools are missing, or are there but Swift will not run from them, your yes starts
+`xcode-select --install`. macOS shows its own dialog: click **Install** and agree to Apple's
+license. The line waits for the tools, up to an hour, prints a line every minute while it does,
+and carries on by itself when they arrive. If you close the dialog, or the hour runs out, it
+stops and has changed nothing else; run the line again when you are ready. When macOS says the
+tools are already installed but they still do not work, see
+[the command line tools are broken](troubleshooting.md#the-command-line-tools-are-broken).
 
 After that it hands over to `make setup`. The build, the long part, is one line that keeps
 moving, counted from Swift's own build steps:
@@ -102,8 +112,9 @@ Follow the "If someone asks you to install Worklens" section of its CLAUDE.md.
 That section of [CLAUDE.md](../../CLAUDE.md) tells it what to run and what not to do. It runs the
 dry run and shows you the plan, and runs the line itself with `--yes` only after you say yes in
 the chat, since it has no terminal to ask you on. It never asks for your Gemini key or puts one in
-a file, and it does not answer macOS dialogs or grant permissions: the certificate's
-authentication prompt, Screen Recording and the key stay yours, as they are on the line above.
+a file, and it does not answer macOS dialogs or grant permissions: Apple's command line tools
+dialog, the certificate's authentication prompt, Screen Recording and the key stay yours, as they
+are on the line above.
 
 ### A checkout of your own
 
@@ -172,6 +183,17 @@ The menu offers **Finish setting up Worklens** while Screen Recording, the Gemin
 window itself is outstanding — three things. Settings
 → Advanced → **Show welcome again** re-opens the window whenever you like. An install that was
 already running is never shown it.
+
+After **Done**, the first screenshot Worklens summarizes is the proof that capture, Screen
+Recording and the Gemini key all work, and one notification says so in its own words: "Your
+day has started." with that first summary quoted underneath, for example *Worklens summarized
+your first screenshot: "Edits setup.sh in VS Code." Click to open the Today page.* Clicking it
+opens the Today page. It is posted once per install and only if notifications are on. The
+quote is the summary stored on your timeline, never read from the window's title or address,
+and a summary that names a web address, or one the model marked sensitive, is not quoted. An install that was already running never
+gets it. If the first summary fails instead (a rejected key, the day's budget, no Screen
+Recording), there is no notification: the menu's status line says what is wrong, as it always
+does.
 
 ## Keys
 
