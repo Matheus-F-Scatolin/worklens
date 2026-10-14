@@ -2860,6 +2860,13 @@ final class AppModel: ObservableObject {
     /// would have paid off, which is what `postBanner` uses `thenPost` for: the banner goes out
     /// after the answer is in, so the thing that earned the question is not the thing the
     /// dialog swallowed.
+    /// Reads the notification status now, for a banner posted at launch: until the first
+    /// `recheckPermissions()` lands, `notifications` is its `.notDetermined` default, and a
+    /// once-ever banner decided against that default would be spent without being drawn.
+    func refreshNotificationStatus() async {
+        notifications = await Notifier.authorizationStatus()
+    }
+
     func requestNotifications(thenPost banner: (@MainActor () -> Void)? = nil) {
         Task { [weak self] in
             await Notifier.requestAuthorization()

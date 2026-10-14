@@ -14,6 +14,17 @@ and opening a fresh empty one above it.
 
 ## [Unreleased]
 
+### Added
+- The one "Your day has started." notification after the welcome window now quotes your first
+  summary, so you know capture, Screen Recording and the Gemini key all work without opening
+  the timeline, and clicking it opens the Today page. It quotes the stored summary only, and
+  leaves out one that names a web address or was marked sensitive. Still once per install,
+  never for the sample week or an install that was already running.
+
+### Fixed
+- The first-summary notification is no longer lost when your first summaries arrived while
+  Worklens was closed, and summaries from the offline fake no longer count as your first day.
+
 ### Changed
 - Settings → General → Updates says whether a new version is available in plain words, with no
   branch or commit, and shows **Update and restart…** only when there is one. The confirmation is

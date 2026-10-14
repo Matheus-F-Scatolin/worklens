@@ -521,6 +521,76 @@ struct SampleWeekTests {
         #expect(SampleWeekHandoff.Facts.read(db).handedOff)
     }
 
+    // MARK: What the one notification quotes
+
+    private static func summarize(
+        _ db: WorklensCore.Database, _ summary: String, provider: String = "gemini", at offset: TimeInterval,
+        inherited: Bool = false, sensitive: Bool = false
+    ) throws {
+        let capture = Capture(
+            capturedAt: wednesday.addingTimeInterval(offset),
+            describeStatus: inherited ? .inherited : .described
+        )
+        try CaptureStore(db).insert(capture)
+        try DescriptionStore(db).insert(Description(
+            captureId: capture.id, provider: provider, model: "m", appKey: "other", taskKey: "other",
+            summaryMd: summary, isSensitive: sensitive, isInherited: inherited,
+            createdAt: wednesday.addingTimeInterval(offset)
+        ))
+    }
+
+    @Test("summaries the offline fake wrote do not make an install look handed over at launch")
+    func factsIgnoreFake() throws {
+        let db = try WorklensCore.Database.inMemory()
+        try Self.summarize(db, "Runs the offline fake.", provider: FakeProvider.name, at: 0)
+        #expect(SampleWeekHandoff.Facts.read(db).hasSummaries == false)
+        #expect(SampleWeekHandoff.atLaunch(SampleWeekHandoff.Facts.read(db), now: Self.wednesday) == .show)
+        try Self.summarize(db, "Edits setup.sh in VS Code.", at: 60)
+        #expect(SampleWeekHandoff.Facts.read(db).firstSummaryAt == Self.wednesday.addingTimeInterval(60))
+    }
+
+    @Test("the banner quotes your earliest real summary, never the fake's, an inherited one or nothing")
+    func firstSummaryRead() throws {
+        let db = try Database.inMemory()
+        #expect(SampleWeekHandoff.firstSummary(db) == nil)
+        try Self.summarize(db, "Runs the offline fake.", provider: FakeProvider.name, at: 0)
+        #expect(SampleWeekHandoff.firstSummary(db) == nil)
+        try Self.summarize(db, "Copied from the screenshot before.", at: 30, inherited: true)
+        #expect(SampleWeekHandoff.firstSummary(db) == nil)
+        try Self.summarize(db, "Edits setup.sh in VS Code.", at: 60)
+        try Self.summarize(db, "Reads the README in Safari.", at: 120)
+        #expect(SampleWeekHandoff.firstSummary(db) == "Edits setup.sh in VS Code.")
+    }
+
+    @Test("a first summary marked sensitive is not put on a banner")
+    func firstSummarySensitive() throws {
+        let db = try Database.inMemory()
+        try Self.summarize(db, "Reads a bank statement.", at: 0, sensitive: true)
+        try Self.summarize(db, "Edits setup.sh in VS Code.", at: 60)
+        #expect(SampleWeekHandoff.firstSummary(db) == nil)
+        #expect(SampleWeekCopy.startedBody(quoting: SampleWeekHandoff.firstSummary(db)) == SampleWeekCopy.startedBody)
+    }
+
+    @Test("the body quotes the summary in one plain line, and falls back without one")
+    func startedBodyQuoting() {
+        #expect(SampleWeekCopy.startedBody(quoting: "Edits setup.sh in VS Code.")
+            == "Worklens summarized your first screenshot: “Edits setup.sh in VS Code.” Click to open the Today page.")
+        #expect(SampleWeekCopy.startedBody(quoting: nil) == SampleWeekCopy.startedBody)
+        #expect(SampleWeekCopy.startedBody(quoting: "  \n ") == SampleWeekCopy.startedBody)
+        // A summary that names a web address is not put on a banner.
+        #expect(SampleWeekCopy.quotable("Reads https://example.com/roadmap in Safari.") == nil)
+        #expect(SampleWeekCopy.quotable("Reads WWW.example.com in Safari.") == nil)
+        #expect(SampleWeekCopy.quotable("Edits **`setup.sh`**\nin  VS Code \u{2014} the installer.")
+            == "Edits setup.sh in VS Code, the installer.")
+        let long = Array(repeating: "Reviews", count: 40).joined(separator: " ") + "."
+        let quoted = SampleWeekCopy.quotable(long)!
+        #expect(quoted.count <= SampleWeekCopy.quoteLimit + 1)
+        #expect(quoted.hasSuffix("Reviews…"))
+        for body in [SampleWeekCopy.startedBody(quoting: long), SampleWeekCopy.startedBody] {
+            #expect(!body.contains("\u{2014}") && !body.contains("\u{2013}"))
+        }
+    }
+
     @Test("the ribbon's status line names what is missing in the menu's words")
     func statusLine() {
         let done = SetupProgress(screenRecording: true, geminiKey: true, onboardedAt: Self.wednesday)

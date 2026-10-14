@@ -17,6 +17,9 @@ enum Notifier {
     /// #350: "Your day has started.", posted once ever, on your first real summary. A request
     /// identifier rather than a category: it has no buttons, and a second post would replace it.
     static let sampleWeekHandoff = "dev.worklens.sample-week-handoff"
+    /// A banner whose click opens the reader on the Today page: the handoff above, which quotes
+    /// your first summary and so is worth seeing in place.
+    static let todayCategory = "dev.worklens.today"
 
     /// Action identifiers. A category with no registered actions is a banner with no buttons —
     /// and, before #149, a banner whose click did nothing at all.
@@ -47,8 +50,12 @@ enum Notifier {
         let permission = UNNotificationCategory(
             identifier: permissionCategory, actions: [], intentIdentifiers: []
         )
+        // Click-to-open as well: the click is the whole action.
+        let today = UNNotificationCategory(
+            identifier: todayCategory, actions: [], intentIdentifiers: []
+        )
         UNUserNotificationCenter.current()
-            .setNotificationCategories([database, permission])
+            .setNotificationCategories([database, permission, today])
     }
 
     static func requestAuthorization() async {

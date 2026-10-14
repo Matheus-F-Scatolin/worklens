@@ -173,6 +173,17 @@ window itself is outstanding — three things. Settings
 → Advanced → **Show welcome again** re-opens the window whenever you like. An install that was
 already running is never shown it.
 
+After **Done**, the first screenshot Worklens summarizes is the proof that capture, Screen
+Recording and the Gemini key all work, and one notification says so in its own words: "Your
+day has started." with that first summary quoted underneath, for example *Worklens summarized
+your first screenshot: "Edits setup.sh in VS Code." Click to open the Today page.* Clicking it
+opens the Today page. It is posted once per install and only if notifications are on. The
+quote is the summary stored on your timeline, never read from the window's title or address,
+and a summary that names a web address, or one the model marked sensitive, is not quoted. An install that was already running never
+gets it. If the first summary fails instead (a rejected key, the day's budget, no Screen
+Recording), there is no notification: the menu's status line says what is wrong, as it always
+does.
+
 ## Keys
 
 Worklens uses one model and you pay Google directly. There is no Worklens account and no key of

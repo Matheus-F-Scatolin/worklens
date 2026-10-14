@@ -41,7 +41,14 @@ public enum SampleWeekHandoff {
             let first = (try? db.writer.read { db in
                 try Date.fetchOne(db, sql: """
                     SELECT MIN(captured_at) FROM captures WHERE describe_status IN (?, ?)
-                    """, arguments: [DescribeStatus.described.rawValue, DescribeStatus.inherited.rawValue])
+                      AND NOT EXISTS (
+                        SELECT 1 FROM descriptions d WHERE d.capture_id = captures.id AND d.provider = ?
+                      )
+                    """, arguments: [
+                        DescribeStatus.described.rawValue, DescribeStatus.inherited.rawValue,
+                        // The offline fake is not your day, at launch either.
+                        FakeProvider.name,
+                    ])
             }) ?? nil
             return Facts(
                 handedOff: ((try? store.getDate(Key.handedOffAt)) ?? nil) != nil,
@@ -113,6 +120,24 @@ public enum SampleWeekHandoff {
     public static func onSummary(provider: String, isShowingSample: Bool, handedOff: Bool) -> Decision {
         guard !handedOff, provider != FakeProvider.name else { return .none }
         return Decision(leave: isShowingSample, notify: true, record: true)
+    }
+
+    /// The summary the one notification quotes, so its banner says what Worklens saw rather
+    /// than only that something arrived: your earliest real summary, exactly as stored (already
+    /// written from a redacted screenshot, never a window title or a URL). Nil when there is
+    /// none yet, when only the offline fake wrote one, or when the model marked that screenshot
+    /// sensitive, which is not something to put on a banner anyone near the screen can read.
+    public static func firstSummary(_ db: Database) -> String? {
+        let row = (try? db.writer.read { db in
+            try Row.fetchOne(db, sql: """
+                SELECT summary_md, is_sensitive FROM descriptions
+                WHERE is_inherited = 0 AND provider != ?
+                ORDER BY created_at, rowid LIMIT 1
+                """, arguments: [FakeProvider.name])
+        }) ?? nil
+        guard let row else { return nil }
+        let sensitive: Bool = row["is_sensitive"] ?? false
+        return sensitive ? nil : row["summary_md"]
     }
 
     /// The ribbon's second line once the welcome is finished: what happens next, or what is

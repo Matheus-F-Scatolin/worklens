@@ -638,3 +638,6 @@
 "Not captured: Worklens could not read this page's address to check it against your never-capture list." = "Not captured: Worklens could not read this page's address to check it against your never-capture list.";
 "Not captured: no window was in front to take a screenshot of." = "Not captured: no window was in front to take a screenshot of.";
 "Not captured: the window in front changed while the screenshot was being taken." = "Not captured: the window in front changed while the screenshot was being taken.";
+
+/* First-summary notification */
+"Worklens summarized your first screenshot: “%@” Click to open the Today page." = "Worklens summarized your first screenshot: “%@” Click to open the Today page.";

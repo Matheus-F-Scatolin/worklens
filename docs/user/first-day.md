@@ -95,8 +95,10 @@ days, and the sample does not come back on its own after that.
 The sample lives in its own file under `sample-week/` in the data directory, and nothing but
 that window reads it: Claude over MCP, the `worklens` commands, search, spend, retention, deletes
 and exports only ever see your own ledger. When your first screenshot is summarized, the window
-fades over to your real Today and one notification says "Your day has started." (only if
-notifications are on; nothing else reminds you). That happens once ever. Settings → Advanced →
+fades over to your real Today and one notification says "Your day has started." and quotes
+that first summary, so you can see what Worklens saw without opening anything (only if
+notifications are on; nothing else reminds you). Clicking it opens the Today page. That happens
+once ever. Settings → Advanced →
 **Show sample week** opens it again whenever you want to look around; it is rebuilt for today
 each time and stays until you leave it.
 

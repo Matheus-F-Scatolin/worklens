@@ -31,6 +31,23 @@ extension AppModel {
         }
     }
 
+    /// A click on the first-summary banner: the reader, on your own Today page. The banner can
+    /// be clicked from Notification Center long after, with the sample week re-opened from
+    /// Settings, so it leaves the sample (leaving lands on Today by itself). The debounced
+    /// timeline rebuild is run first, so a click inside its five seconds does not open on an
+    /// empty day.
+    func openToday() {
+        closeSettings()
+        openWindow(id: AppModel.readerWindowID)
+        Task { [weak self] in
+            await self?.timeline?.flush()
+            guard let self else { return }
+            if self.isShowingSampleWeek { return self.exitSampleWeek() }
+            await self.refreshReaderIndex()
+            self.showToday()
+        }
+    }
+
     /// Selects, and reloads even when the same row was already selected.
     func select(_ selection: ReaderSelection) {
         if readerSelection == selection {
