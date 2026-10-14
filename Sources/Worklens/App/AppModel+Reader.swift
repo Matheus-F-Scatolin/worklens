@@ -15,6 +15,12 @@ extension AppModel {
     /// other case.
     var readerHasDays: Bool { !readerWeeks.isEmpty }
 
+    /// A step's page is still being built: the page on screen is the one being left, and is
+    /// drawn faded so the click is seen to have landed.
+    var readerIsTurning: Bool {
+        readerLoading && readerDocument != nil && readerDocument?.selection != readerSelection
+    }
+
     /// The menu's "Open Worklens".
     func openReader(_ selection: ReaderSelection? = nil) {
         // #286: Settings shares this window now; a day asked for is a reading page.
@@ -48,9 +54,11 @@ extension AppModel {
         }
     }
 
-    /// Selects, and reloads even when the same row was already selected.
+    /// Selects, and reloads even when the same row was already selected: a reload asked for is
+    /// a fresh read, never the page kept from before.
     func select(_ selection: ReaderSelection) {
         if readerSelection == selection {
+            readerCache.remove(selection)
             loadReaderDocument()
         } else {
             readerSelection = selection
@@ -259,27 +267,76 @@ extension AppModel {
         readerIndexLoaded = true
     }
 
-    /// Rebuilds the detail pane for whatever is selected. Cancels the load in flight, so clicking
-    /// down a week of days does not queue a week of renders.
+    /// Shows the page for whatever is selected: the one already built when its days have not
+    /// moved since, else a fresh build. Cancels the load in flight, so clicking down a week of
+    /// days does not queue a week of renders. Either way the pages one step either side are
+    /// built next, so the next ‹ › lands at once.
     func loadReaderDocument() {
         readerLoad?.cancel()
         guard let selection = readerSelection else {
             readerDocument = nil
             return
         }
+        if let kept = readerCache.document(for: selection, index: readerEntries) {
+            readerLoad = nil
+            readerDocument = kept
+            readerLoading = false
+            buildReaderNeighbours(of: selection)
+            return
+        }
         readerLoading = true
+        let build = readerBuild(selection)
         readerLoad = Task { [weak self] in
-            guard let self else { return }
-            let document = await self.buildReaderDocument(selection)
-            guard !Task.isCancelled else { return }
+            let document = await build.value
+            guard let self, !Task.isCancelled else { return }
             self.readerDocument = document
             self.readerLoading = false
+            self.buildReaderNeighbours(of: selection)
         }
     }
 
-    private func buildReaderDocument(_ selection: ReaderSelection) async -> ReaderDocument? {
-        guard let db = readerDB else { return nil }
-        return await buildReaderDocument(selection, db: db, entries: readerEntries)
+    /// The build of `selection`'s page: the one already in flight, or a new one that keeps its
+    /// page in `readerCache` when it is done.
+    private func readerBuild(_ selection: ReaderSelection) -> Task<ReaderDocument?, Never> {
+        if let running = readerBuilds[selection] { return running }
+        let entries = readerEntries
+        let sample = isShowingSampleWeek
+        let db = readerDB
+        let build = Task { [weak self] () -> ReaderDocument? in
+            guard let self else { return nil }
+            let document: ReaderDocument? = if let db {
+                await self.buildReaderDocument(selection, db: db, entries: entries)
+            } else {
+                nil
+            }
+            // A swap to or from the sample week while this ran: neither database keeps it, and
+            // the swap already emptied `readerBuilds`.
+            guard self.isShowingSampleWeek == sample else { return nil }
+            self.readerBuilds[selection] = nil
+            if let document { self.readerCache.store(document, builtFrom: entries) }
+            return document
+        }
+        readerBuilds[selection] = build
+        return build
+    }
+
+    /// The pages ‹ and › would open from `selection`, built ahead when they are not kept yet.
+    private func buildReaderNeighbours(of selection: ReaderSelection) {
+        let neighbours = ReaderDocumentCache.neighbours(
+            of: selection,
+            days: readerWeeks.flatMap(\.days).map(\.day),
+            mondays: readerWeeks.map(\.monday)
+        )
+        for neighbour in neighbours
+        where readerCache.document(for: neighbour, index: readerEntries) == nil {
+            _ = readerBuild(neighbour)
+        }
+    }
+
+    /// Forgets every kept page and every build in flight: the reader moved to another database.
+    func resetReaderCache() {
+        readerCache.removeAll()
+        readerBuilds = [:]
     }
 
     /// A document read from `db` with `entries` as its index, whatever the reader is showing.

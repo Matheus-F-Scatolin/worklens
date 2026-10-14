@@ -82,7 +82,9 @@ struct ReaderView: View {
     /// has no menu bar to hang one on.
     ///
     /// ⌘← and ⌘→ step through the days, or through the weeks on Weeks — the pair every other
-    /// "previous / next" in macOS is bound to.
+    /// "previous / next" in macOS is bound to — and so do ← and → on their own, which is what a
+    /// hand reaches for first. Nothing on either page takes the arrows for itself: the waterfall's
+    /// bars are reached with Tab, and Settings, which has text fields, turns all four off.
     private var windowShortcuts: some View {
         Group {
             // #286: ⌘, from inside the window too, for when `DockPresence` has not put a menu
@@ -94,6 +96,12 @@ struct ReaderView: View {
                 .disabled(model.settingsSection != nil)
             Button(ReaderShellCopy.nextDay) { step(by: -1) }
                 .keyboardShortcut(.rightArrow, modifiers: .command)
+                .disabled(model.settingsSection != nil)
+            Button(ReaderShellCopy.previousDay) { step(by: 1) }
+                .keyboardShortcut(.leftArrow, modifiers: [])
+                .disabled(model.settingsSection != nil)
+            Button(ReaderShellCopy.nextDay) { step(by: -1) }
+                .keyboardShortcut(.rightArrow, modifiers: [])
                 .disabled(model.settingsSection != nil)
         }
         .opacity(0)

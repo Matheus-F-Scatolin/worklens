@@ -24,6 +24,8 @@ struct WeekPage: View {
                     .padding(.horizontal, 28)
                     .padding(.bottom, 36)
                 }
+                .opacity(model.readerIsTurning ? ReaderTheme.turningOpacity : 1)
+                .animation(.easeOut(duration: 0.15), value: model.readerIsTurning)
             } else {
                 Text(ReaderShellCopy.weekNothing)
                     .foregroundStyle(ReaderTheme.muted)
@@ -45,6 +47,7 @@ struct WeekPage: View {
                         .font(ReaderTheme.serif(30))
                         .kerning(-0.45)
                         .foregroundStyle(ReaderTheme.text)
+                        .opacity(model.readerIsTurning ? ReaderTheme.turningOpacity : 1)
                         .accessibilityAddTraits(.isHeader)
                     ReaderChevron(
                         systemName: "chevron.right", label: ReaderShellCopy.nextWeek,

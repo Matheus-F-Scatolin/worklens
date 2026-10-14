@@ -282,18 +282,16 @@ public enum ReaderTick {
         // count moves on every tick.
         ReaderTickDecision(
             refreshIndex: indexCoversToday,
-            rebuildDocument: rebuilds(open: open, today: today, timeZone: timeZone)
+            rebuildDocument: open.map { holdsToday($0, today: today, timeZone: timeZone) } ?? false
         )
     }
 
-    /// Whether the open document is the one that changed: today, or the week holding it, whose
-    /// chart and grid move with every frame.
-    private static func rebuilds(
-        open: ReaderSelection?, today: String, timeZone: TimeZone
+    /// Whether a page is one that changes: today, or the week holding it, whose chart and grid
+    /// move with every frame.
+    static func holdsToday(
+        _ open: ReaderSelection, today: String, timeZone: TimeZone
     ) -> Bool {
         switch open {
-        case .none:
-            return false
         case let .day(day):
             return day == today
         case let .week(monday):

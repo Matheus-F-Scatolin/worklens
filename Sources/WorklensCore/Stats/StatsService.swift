@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Reads a day (or a week) out of the database and hands it to the pure aggregator.
 ///
@@ -290,7 +291,7 @@ public struct StatsService: Sendable {
     /// Every day of the week that has tracked time, plus last week's totals for the deltas.
     public func weekly(_ week: ISOWeek, includePreviousWeek: Bool = true) throws -> WeeklyStats {
         // #320: a week carries each day's buckets, not its spans.
-        let days = try week.days.map { day -> DailyStats in
+        let days = try Self.sideBySide(week.days) { day -> DailyStats in
             var stats = try daily(day: day)
             stats.accounting = stats.accounting?.withoutSpans
             stats.projectSpans = nil
@@ -298,7 +299,7 @@ public struct StatsService: Sendable {
         }
         var previous: WeeklyStats?
         if includePreviousWeek, let earlier = week.previous(timeZone: timeZone) {
-            let earlierDays = try earlier.days.map { try daily(day: $0) }
+            let earlierDays = try Self.sideBySide(earlier.days) { try daily(day: $0) }
             if earlierDays.contains(where: { !$0.isEmpty }) {
                 previous = StatsAggregator.weekly(days: earlierDays, timeZone: timeZone)
             }
@@ -310,6 +311,23 @@ public struct StatsService: Sendable {
         stats.weekEnd = week.end
         stats.isoWeek = week.identifier
         return stats
+    }
+
+    /// `days.map(read)`, with the days read side by side. Each day is its own handful of reads
+    /// off the WAL pool and its own aggregation pass, and one after another they were most of
+    /// the second or two the Weeks page took to turn a week (2026-10-14). Order is kept; the
+    /// first error is the one thrown.
+    static func sideBySide<T: Sendable>(
+        _ days: [String], _ read: @Sendable (String) throws -> T
+    ) throws -> [T] {
+        let results = OSAllocatedUnfairLock(
+            initialState: [Result<T, Error>?](repeating: nil, count: days.count)
+        )
+        DispatchQueue.concurrentPerform(iterations: days.count) { index in
+            let result = Result { try read(days[index]) }
+            results.withLock { $0[index] = result }
+        }
+        return try results.withLock { $0 }.map { try $0!.get() }
     }
 
     /// Seconds per document on the local day (#319), uncapped: what the `shipped` tool joins a

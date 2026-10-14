@@ -1200,6 +1200,7 @@ final class AppModel: ObservableObject {
             open: readerSelection, today: DayBoundaries.dayString(Date())
         )
         if decision.refreshIndex { await refreshReaderIndex() }
+        readerCache.dropHoldingToday(DayBoundaries.dayString(Date()))
         if decision.rebuildDocument { loadReaderDocument() }
     }
 
@@ -2918,13 +2919,22 @@ final class AppModel: ObservableObject {
     @Published var readerIsVisible = false
     var readerEntries: [String: DayIndexEntry] = [:]
     var readerLoad: Task<Void, Never>?
+    /// Pages already built, and the ones either side of the open page built ahead, so a step
+    /// lands at once instead of after a rebuild.
+    var readerCache = ReaderDocumentCache()
+    /// Builds in flight, by page, so a step onto a page still being built ahead waits for that
+    /// build rather than starting a second.
+    var readerBuilds: [ReaderSelection: Task<ReaderDocument?, Never>] = [:]
 
     // MARK: - The sample week (#349, #350)
 
     // Stored state only; `AppModel+SampleWeek.swift` holds every method and is the only writer.
 
     /// The reader is showing the invented sample week rather than your own days.
-    @Published var isShowingSampleWeek = false
+    @Published var isShowingSampleWeek = false {
+        // A page read from one database is never drawn over the other's.
+        didSet { if oldValue != isShowingSampleWeek { resetReaderCache() } }
+    }
     /// The sample's own database, open while it is shown. Never the ledger, never handed to
     /// anything but the reader.
     var sampleWeekDB: Database?
