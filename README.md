@@ -8,12 +8,12 @@
 your day actually went.**
 
 <p align="center">
-  <a href="https://youtu.be/uIpF8Qte71A">
-    <img src="https://img.youtube.com/vi/uIpF8Qte71A/maxresdefault.jpg" width="760"
+  <a href="https://youtu.be/6wgLnOz1ZNs">
+    <img src="https://img.youtube.com/vi/6wgLnOz1ZNs/sddefault.jpg" width="760"
          alt="Watch the Worklens demo on YouTube.">
   </a>
   <br>
-  <sub><a href="https://youtu.be/uIpF8Qte71A">Watch the demo on YouTube</a></sub>
+  <sub><a href="https://youtu.be/6wgLnOz1ZNs">Watch the demo on YouTube</a></sub>
 </p>
 
 <p align="center">
