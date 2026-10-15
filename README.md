@@ -9,7 +9,7 @@ your day actually went.**
 
 <p align="center">
   <a href="https://youtu.be/6wgLnOz1ZNs">
-    <img src="https://img.youtube.com/vi/6wgLnOz1ZNs/sddefault.jpg" width="760"
+    <img src="docs/media/demo-thumbnail.png" width="760"
          alt="Watch the Worklens demo on YouTube.">
   </a>
   <br>
