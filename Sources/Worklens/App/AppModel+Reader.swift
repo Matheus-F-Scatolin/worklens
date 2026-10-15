@@ -74,6 +74,16 @@ extension AppModel {
         }
     }
 
+    /// `ReaderView` appeared. The window opens by more ways than `openReader` (at launch, from
+    /// the Dock tile, from the open shortcut), and those pick no page, so Today drew its empty
+    /// line until a trip to Weeks and back picked a day. Whatever opened it, a first open lands
+    /// on a page.
+    func readerAppeared() async {
+        await refreshReaderIndex()
+        guard readerSelection == nil else { return }
+        if readerPlace == .weeks { show(.weeks) } else { showToday() }
+    }
+
     /// `ReaderView` appeared or went away. The window is the only thing that knows.
     func readerWindow(isVisible: Bool) {
         readerIsVisible = isVisible

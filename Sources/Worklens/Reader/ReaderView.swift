@@ -48,7 +48,7 @@ struct ReaderView: View {
             // knows this window exists: closing a `Window(id:)` leaves the model's selection
             // where it was, so the model is told when to stop.
             model.readerWindow(isVisible: true)
-            await model.refreshReaderIndex()
+            await model.readerAppeared()
         }
         .onDisappear { model.readerWindow(isVisible: false) }
     }
