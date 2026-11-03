@@ -22,9 +22,11 @@ struct TodayPage: View {
                 } else if model.readerLoading {
                     ProgressView().padding(.top, 80)
                 } else {
-                    Text(ReaderShellCopy.todayNothing)
-                        .foregroundStyle(ReaderTheme.muted)
-                        .padding(.top, 80)
+                    EmptyPageLines(
+                        title: ReaderShellCopy.todayNothing,
+                        detail: model.readerEmptyDetail(for: model.readerDocument?.selection)
+                    )
+                    .padding(.top, 80)
                 }
             }
             .frame(maxWidth: ReaderTheme.columnWidth)

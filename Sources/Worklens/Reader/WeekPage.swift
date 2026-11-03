@@ -27,9 +27,11 @@ struct WeekPage: View {
                 .opacity(model.readerIsTurning ? ReaderTheme.turningOpacity : 1)
                 .animation(.easeOut(duration: 0.15), value: model.readerIsTurning)
             } else {
-                Text(ReaderShellCopy.weekNothing)
-                    .foregroundStyle(ReaderTheme.muted)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                EmptyPageLines(
+                    title: ReaderShellCopy.weekNothing,
+                    detail: model.readerEmptyDetail(for: document.selection)
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

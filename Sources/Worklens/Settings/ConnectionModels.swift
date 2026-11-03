@@ -280,8 +280,9 @@ struct IntegrationSetupSheet: View {
 
 // MARK: - The Google connect flow (#139)
 
-/// Connect, cancel, reconnect and disconnect, plus the one choice that decides whether macOS will
-/// ask for your login password after every rebuild.
+/// Connect, cancel, reconnect and disconnect. Where the sign-in is kept is not asked here: the
+/// pre-selected store is the one that works on this binary, and Settings → Advanced is where it
+/// can be changed, so connecting is one button.
 ///
 /// Drawn in two places — the Google account section of the pane, and the Calendar setup
 /// sheet, where the steps that create the client id sit right above it. Both read the same
@@ -297,7 +298,9 @@ struct GoogleConnectControls: View {
             case .notConfigured:
                 SettingsNote(text: "Save the OAuth client id and secret first.")
             case .disconnected:
-                storePicker
+                if let problem = integrations.storeError {
+                    SettingsNote(text: problem, level: .problem)
+                }
                 HStack {
                     Button(String(localized: "Connect Google\u{2026}", comment: "Button")) { Task { await integrations.connectGoogle() } }
                     Text(String(localized: "Opens your browser. Scope: calendar.readonly.", comment: "Label"))
@@ -356,11 +359,6 @@ struct GoogleConnectControls: View {
                     .font(Theme.Text.rowBody)
                     .foregroundStyle(.secondary)
             }
-            Text(integrations.storeLine)
-                .font(Theme.Text.rowBody)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            storePicker
         }
     }
 
@@ -370,48 +368,6 @@ struct GoogleConnectControls: View {
         String(
             localized: "Your Google sign-in expired, so Calendar is paused.",
             comment: "Label") + " " + IntegrationSetup.googleTestingNote
-    }
-
-    // MARK: Where the grant is kept
-
-    /// The choice `docs/decisions.md` asked for: made here, at connect time, pre-selected to the
-    /// store an existing grant is in — and otherwise to the one that works on a binary with no
-    /// Team ID — and never changed behind your back.
-    @ViewBuilder
-    private var storePicker: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Picker(String(localized: "Keep the sign-in in", comment: "Picker"), selection: storeBinding) {
-                ForEach(GoogleTokenStorage.allCases, id: \.self) { store in
-                    Text(store.label).tag(store)
-                }
-            }
-            .pickerStyle(.radioGroup)
-            .disabled(!storeLayer.isWritableInApp || integrations.isSwitchingStore)
-            Text(integrations.tokenStore.detail)
-                .font(Theme.Text.rowBody)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            if let note = storeLayer.lockedNote {
-                SettingsNote(text: note)
-            }
-            if let problem = integrations.storeError {
-                SettingsNote(text: problem, level: .problem)
-            }
-        }
-    }
-
-    private var storeLayer: ConfigLayer {
-        model.configProvenance.source(of: "GOOGLE_TOKEN_STORE")
-    }
-
-    /// Switching while a grant exists is a disconnect and a reconnect, in that order and in one
-    /// click: only a disconnect revokes the old grant at Google, and it has to happen while the
-    /// old store is still the configured one.
-    private var storeBinding: Binding<GoogleTokenStorage> {
-        Binding(
-            get: { integrations.tokenStore },
-            set: { store in Task { await integrations.chooseTokenStore(store) } }
-        )
     }
 }
 
@@ -446,7 +402,7 @@ final class IntegrationsModel: ObservableObject {
     /// #139: the scheduler saw `invalid_grant`, so Calendar is paused. A typed flag
     /// read off `SourceStatus`, never a match on the sentence beside it.
     @Published private(set) var googleNeedsReconnect = false
-    /// Which store the radio group is showing: what the configuration says once someone has
+    /// Which store the store setting is showing: what the configuration says once someone has
     /// chosen, and the one that works on this binary until they have.
     @Published var tokenStore: GoogleTokenStorage = .keychain
     @Published private(set) var isSwitchingStore = false
@@ -468,23 +424,17 @@ final class IntegrationsModel: ObservableObject {
     /// The configured store once someone has actually set the key, and otherwise the one that
     /// works on the binary that is running: with no Apple Developer Team ID in the signature the
     /// login keychain re-asks for the login password after every rebuild, and nothing in the app
-    /// can pre-authorise it. `docs/decisions.md` asked for this to be chosen rather than
-    /// inherited, so it is a pre-selection on a control, not a silent resolution of the default.
+    /// can pre-authorise it. Connecting uses it without asking (2026-11-02); Settings → Advanced
+    /// is where it is changed.
     static func preselectedStore(app: AppModel?) -> GoogleTokenStorage {
         guard let app else { return .keychain }
         // Where a grant already is outranks both: switching the key never moved one, so a grant
         // from before this control existed can sit in a store neither the key nor the signature
-        // would point at — and the line above the radio group names the store it is in.
+        // would point at.
         if let holding = GoogleAuth.storeHoldingGrant(config: app.config) { return holding }
         let layer = app.configProvenance.source(of: "GOOGLE_TOKEN_STORE")
         if layer != .fallback { return app.config.googleTokenStore }
         return GoogleTokenStorage.recommended(teamID: SigningIdentity.runningTeamIdentifier)
-    }
-
-    /// The one line that names where the grant actually is — the same store the radio group
-    /// under it is showing, never the configured one when a grant is somewhere else.
-    var storeLine: String {
-        "Kept in the \(tokenStore.label.lowercased()). \(tokenStore.detail)"
     }
 
     var config: Config { app?.config ?? Config.defaults() }
@@ -534,13 +484,13 @@ final class IntegrationsModel: ObservableObject {
     /// Runs the browser flow, then syncs so the Calendar card fills in straight away.
     ///
     /// Writes the chosen store first, when it is not the one the configuration already holds:
-    /// the grant has to land where the radio group says it will, and `applySetting` reloads the
+    /// the grant has to land where the store setting says it will, and `applySetting` reloads the
     /// configuration this method then builds its `GoogleAuth` from.
     func connectGoogle() async {
         if !writeStoreIfNeeded(tokenStore) { return }
         // `applySetting` reloads the configuration on an enqueued task, so `config` can still be
         // the old one here — and `GoogleAuth` snapshots its store at init. Pin the chosen store
-        // on the copy this flow uses, so the grant lands where the radio group said it would.
+        // on the copy this flow uses, so the grant lands where the store setting said it would.
         let auth = GoogleAuth(config: config(storing: tokenStore))
         guard auth.isConfigured else {
             google = .notConfigured
@@ -580,7 +530,7 @@ final class IntegrationsModel: ObservableObject {
     func chooseTokenStore(_ store: GoogleTokenStorage) async {
         guard store != tokenStore else { return }
         storeError = nil
-        // The old store is the one the radio group was showing, which is where the grant is —
+        // The old store is the one the store setting was showing, which is where the grant is —
         // not necessarily the configured one.
         let old = config(storing: tokenStore)
         let hadGrant = GoogleAuth(config: old).hasStoredGrant
@@ -620,7 +570,7 @@ final class IntegrationsModel: ObservableObject {
 
     func disconnectGoogle() async {
         do {
-            // The store the radio group is showing is the one the grant is in.
+            // The store the store setting is showing is the one the grant is in.
             try await GoogleAuth(config: config(storing: tokenStore)).disconnect()
             google = .disconnected
         } catch {

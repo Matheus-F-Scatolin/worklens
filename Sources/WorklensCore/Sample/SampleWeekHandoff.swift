@@ -153,6 +153,19 @@ public enum SampleWeekHandoff {
         locale: Locale = .autoupdatingCurrent
     ) -> String? {
         guard setup.onboarded, !handedOff else { return nil }
+        return inTheWay(setup: setup, scheduler: scheduler, now: now, timeZone: timeZone, locale: locale)
+            ?? SampleWeekCopy.firstMoments
+    }
+
+    /// The one thing keeping your moments from arriving, in the menu's words, or nil when there
+    /// is none and they are on their way. The ribbon and the reader's empty pages both say it.
+    public static func inTheWay(
+        setup: SetupProgress,
+        scheduler: SchedulerState,
+        now: Date = Date(),
+        timeZone: TimeZone = .current,
+        locale: Locale = .autoupdatingCurrent
+    ) -> String? {
         if !setup.screenRecording {
             return MenuModel.statusRow(menuState(.permissionMissing, locale), now: now, timeZone: timeZone).text
         }
@@ -163,7 +176,7 @@ public enum SampleWeekHandoff {
         case .paused, .budgetExceeded, .permissionMissing, .stopped:
             return MenuModel.statusRow(menuState(scheduler, locale), now: now, timeZone: timeZone).text
         case .running, .idle, .locked, .asleep:
-            return SampleWeekCopy.firstMoments
+            return nil
         }
     }
 

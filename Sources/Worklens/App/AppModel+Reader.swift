@@ -15,6 +15,14 @@ extension AppModel {
     /// other case.
     var readerHasDays: Bool { !readerWeeks.isEmpty }
 
+    /// The line under an empty page that is still now: that it fills in by itself, or what is in
+    /// the way. `selection` nil is the reader with no days at all.
+    func readerEmptyDetail(for selection: ReaderSelection?) -> String? {
+        ReaderShellCopy.emptyDetail(
+            selection: selection, setup: setupProgress, scheduler: state.scheduler
+        )
+    }
+
     /// A step's page is still being built: the page on screen is the one being left, and is
     /// drawn faded so the click is seen to have landed.
     var readerIsTurning: Bool {

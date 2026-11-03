@@ -128,7 +128,10 @@ complete v1 after #18.
   `kSecCodeInfoTeamIdentifier`) — which is every build of Worklens today. Pre-selected, not
   resolved: `GOOGLE_TOKEN_STORE` still records the answer, a value the user or a file already
   set still wins, and switching stores from the radio group performs the disconnect-then-connect
-  dance in one click instead of printing it as two terminal commands.
+  dance in one click instead of printing it as two terminal commands. **2026-11-02:** the
+  choice left the connect sheet. Onboarding a new user showed it as a question with no answer
+  they could give; the pre-selection is now just the default, and the choice lives only in
+  Settings → Advanced → **Keep the Google sign-in in**.
 - **Own data only for integrations:** Granola stores meetings the user attended, and Calendar the
   events on the user's own calendar. (Slack stored only messages the user sent, and Gmail only
   sent-mail metadata, until both were removed on 2026-09-23 — see below.)
