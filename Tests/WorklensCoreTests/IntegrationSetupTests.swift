@@ -361,3 +361,31 @@ struct CredentialFailureTests {
         #expect(!ContextSyncError.isCredential(GoogleAuth.Failure.stateMismatch))
     }
 }
+
+// MARK: - The setup prompt
+
+@Suite("Calendar setup prompt")
+struct IntegrationAgentPromptTests {
+    @Test("only Calendar has a prompt, and it names the fields you paste into")
+    func namesTheFields() throws {
+        #expect(IntegrationSetup.agentPrompt(for: .granola) == nil)
+        let prompt = try #require(IntegrationSetup.agentPrompt(for: .calendar))
+        for field in IntegrationSetup.fields(for: .calendar) {
+            #expect(prompt.contains("\"\(field.label)\""), "the prompt must quote the sheet's \(field.label) label")
+        }
+        #expect(prompt.contains("Desktop app"))
+        #expect(prompt.contains("Google Calendar API"))
+        #expect(prompt.contains(IntegrationSetup.Links.googleCloud.absoluteString))
+    }
+
+    @Test("it leaves sign-in, terms and the secret to you, and keeps the app in Testing")
+    func leavesYourStepsToYou() throws {
+        let prompt = try #require(IntegrationSetup.agentPrompt(for: .calendar))
+        #expect(prompt.contains("sign in, accept terms or confirm something, stop and let me do it"))
+        #expect(prompt.contains("do not copy either value into this chat"))
+        #expect(prompt.contains("do not publish it"))
+        #expect(prompt.contains("do not add one"), "no billing account")
+        #expect(prompt.contains("Change nothing else"))
+        #expect(!prompt.contains("\u{2014}"), "no em dashes in copy")
+    }
+}

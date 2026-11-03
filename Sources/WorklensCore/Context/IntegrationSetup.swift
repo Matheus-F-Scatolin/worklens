@@ -134,6 +134,50 @@ public enum IntegrationSetup {
         }
     }
 
+    // MARK: The setup prompt
+
+    /// What the Calendar sheet's **Copy setup prompt** puts on the clipboard, for you to paste
+    /// into Claude Code, Codex or any agent that can drive your browser: the Google Cloud half of
+    /// `steps(for: .calendar)`, done for you, ending with the values to paste here and the steps
+    /// that stay yours. Nil for a source that has nothing to set up outside Worklens.
+    ///
+    /// It is a prompt, so it stays English like every other one. It leaves sign-in, terms and
+    /// every confirmation to you, and keeps the client secret out of the agent's chat: Google
+    /// shows it in a dialog, and you copy it from there yourself.
+    public static func agentPrompt(for source: ContextSource) -> String? {
+        guard source == .calendar else { return nil }
+        return """
+            Help me connect Google Calendar to Worklens, a Mac app that reads my own calendar. \
+            Use my web browser to do the Google Cloud part for me. Whenever Google asks me to \
+            sign in, accept terms or confirm something, stop and let me do it: those steps are \
+            mine.
+
+            In my Google account, at \(Links.googleCloud.absoluteString), set up:
+            1. A Google Cloud project named Worklens, or the one I already use for it. No \
+            billing account is needed; do not add one.
+            2. The Google Calendar API, enabled in that project.
+            3. The OAuth consent screen (Google Auth Platform): app name Worklens, audience \
+            External, my own email as the support and developer contact email. Add my own \
+            Google address as a test user. Leave the app in Testing: do not publish it and do \
+            not submit it for verification.
+            4. An OAuth client ID of type Desktop app, named Worklens.
+
+            When the client is created, Google shows its client ID and client secret. Leave \
+            that dialog open and do not copy either value into this chat. Tell me to paste \
+            them into Worklens myself: Settings → Connections → Google Calendar → Connect…, \
+            the "OAuth client id" and "OAuth client secret" fields, then Save.
+
+            Then tell me the steps left for me:
+            - In Worklens, press Connect Google… and pick the same Google account.
+            - Google says it has not verified this app. That is expected for my own project: \
+            choose Advanced, then Go to Worklens, then allow it to see my calendar.
+            - While the app stays in Testing, Google ends the sign-in every 7 days, and \
+            Worklens shows a Reconnect button when it does.
+
+            Change nothing else in my Google account.
+            """
+    }
+
     /// The two pages a setup step sends you to. They open in your browser; Worklens itself sends
     /// them nothing, which is what `PRIVACY.md`'s setup-links row says.
     public enum Links {

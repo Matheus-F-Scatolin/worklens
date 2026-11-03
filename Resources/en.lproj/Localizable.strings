@@ -640,3 +640,8 @@
 /* First-summary notification */
 "Worklens summarized your first screenshot: “%@” Click to open the Today page." = "Worklens summarized your first screenshot: “%@” Click to open the Today page.";
 "There is nothing else to do here. Worklens records on its own from now on, and what you work on shows up in about a minute." = "There is nothing else to do here. Worklens records on its own from now on, and what you work on shows up in about a minute.";
+"Or do it yourself" = "Or do it yourself";
+"Let an agent set it up" = "Let an agent set it up";
+"Paste this prompt into Claude Code or Codex. It sets up Google Cloud in your browser, stops whenever Google needs you, then tells you the two values to paste below." = "Paste this prompt into Claude Code or Codex. It sets up Google Cloud in your browser, stops whenever Google needs you, then tells you the two values to paste below.";
+"Copy setup prompt" = "Copy setup prompt";
+"Copied" = "Copied";

@@ -232,16 +232,16 @@ a stored key again: every surface prints the same seven-character prefix `config
 `~/Library/Application Support/Worklens/.launch-env`, a one-line note of *which* configuration
 file this launch was told to read so an update can put the app back on it (a path, never a
 value; deleting it is safe). And the macOS keychain entry for a Google refresh token if you
-connect Calendar (`Context/Google/Keychain.swift`) — unless you choose the data folder
-when you connect, which puts it *into* `DATA_DIR` as `google-token.json`, mode 0600, to
+connect Calendar (`Context/Google/Keychain.swift`) — unless it is kept in the data folder,
+which puts it *into* `DATA_DIR` as `google-token.json`, mode 0600, to
 escape a macOS access dialog that a rebuild raises again no matter how the item was stored
 (docs/contributing/signing.md, "The Keychain dialog after every rebuild"). Then it is as exposed
 as your `.env`: unreadable by other accounts on this Mac, readable by anything running as you,
-and included in any backup of the folder (`Context/Google/FileTokenStore.swift`). The Google
-Calendar setup sheet asks which of the two you want as you connect, Settings → Advanced → **Keep
-the Google sign-in in** changes it later, and both write the answer to `GOOGLE_TOKEN_STORE`; the sheet pre-selects the
-data folder on a build with no Apple Developer Team ID, because on those the keychain asks for your
-login password again after every rebuild. And, only if you ask for it,
+and included in any backup of the folder (`Context/Google/FileTokenStore.swift`). Connecting
+uses the data folder on a build with no Apple Developer Team ID, because on those the keychain
+asks for your login password again after every rebuild, and the keychain otherwise; Settings →
+Advanced → **Keep the Google sign-in in** changes it and writes the answer to
+`GOOGLE_TOKEN_STORE`. And, only if you ask for it,
 `~/Library/Application Support/Claude/claude_desktop_config.json`: Settings → Connections → Claude
 Desktop → **Connect**, and `worklens mcp install`, merge one `mcpServers` entry into that file so Claude Desktop can launch `worklens mcp` (#140). Your old file is copied beside it first as
 `claude_desktop_config.json.worklens-<timestamp>.bak` — nothing deletes those copies, so they stay
