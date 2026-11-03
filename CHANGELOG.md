@@ -35,6 +35,14 @@ and opening a fresh empty one above it.
   Worklens was closed, and summaries from the offline fake no longer count as your first day.
 
 ### Changed
+- **The tour's "Open your week" step has no Back.** With Next already hidden there, Back was
+  the only button on the card, so people pressed it instead of the calendar button the card
+  pointed at.
+- **The welcome tour closes the sample week when it ends**, so after setting up you are on your
+  own days rather than wondering whether the made-up ones are yours. Settings → Advanced →
+  **Show sample week** still brings it back.
+- **The Granola sheet closes itself once Granola accepts the key**, with a "saved and verified"
+  note in Settings. A refused key keeps the sheet open to say why.
 - **An empty Today or Weeks says it fills in by itself.** While capture is running, the page
   under "Nothing recorded…" now says there is nothing else to do and your work shows up in about
   a minute; when something is in the way (Screen Recording, the key, a pause) it names that

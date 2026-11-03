@@ -21,6 +21,9 @@ extension AppModel {
     /// Whether this tour put the sample week up, rather than finding it already shown.
     private static var tourShowedSample = false
 
+    /// Which tour is running: the welcome window's always takes the sample down when it ends.
+    private static var tourRun: TourRun = .again
+
     /// `app_state` key: a tour from the welcome window is running. A Worklens that quits in the
     /// middle of it resumes on Screen Recording without saying the grant is still off, since
     /// nothing was asked for.
@@ -37,6 +40,7 @@ extension AppModel {
     ///     which cannot (#357).
     ///   - then: called once when the tour ends, however it ends.
     func startTour(run: TourRun = .again, then: ((TourOutcome) -> Void)? = nil) {
+        AppModel.tourRun = run
         closeSettings()
         frontHomeWindow()
         tour.start(
@@ -81,13 +85,14 @@ extension AppModel {
         showSampleWeek()
     }
 
-    /// After the last one. During the welcome flow the sample stays: there is nothing of yours
-    /// yet, and your first real moment takes it away (#350). Once your own days have started, a
-    /// tour that put the sample up takes it down again; one you opened yourself stays.
+    /// After the last one, the sample goes, so nobody is left reading made-up days and wondering
+    /// whether they are theirs. The welcome window's tour always takes it down and, like **Leave
+    /// sample week**, keeps it from coming back on its own; a tour from Settings takes it down
+    /// only when it put it up, so a sample you opened yourself stays.
     private func sampleWeekAfterTour() {
         defer { AppModel.tourShowedSample = false }
-        guard AppModel.tourShowedSample, sampleWeekHandedOff else { return }
-        exitSampleWeek()
+        guard AppModel.tourShowedSample || AppModel.tourRun == .welcome else { return }
+        leaveSampleWeek()
     }
 
     /// The shortcuts as they are registered right now, so the card never names a key that is not

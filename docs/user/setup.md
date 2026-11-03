@@ -166,7 +166,8 @@ it. Six pages:
 2. **What Worklens does** — what it records, where it stays and what you get, in three lines,
    with the whole of what it records and never records one disclosure away.
 3. **See a sample week.** **Take the tour** opens Worklens over a week of made-up days and points
-   at each part of it, one card at a time; when it ends, the window comes back on the next page.
+   at each part of it, one card at a time; when it ends, the sample week closes and the window
+   comes back on the next page.
    The tour is part of setting up, so this page has no **Skip**. Once you have taken it, the page
    also has **Continue**, so going **Back** to it never means taking the tour twice.
 4. **Screen Recording**, which macOS only hands to a copy of Worklens that starts *after* you

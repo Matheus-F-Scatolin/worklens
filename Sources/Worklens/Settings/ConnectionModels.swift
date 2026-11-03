@@ -217,7 +217,11 @@ struct IntegrationSetupSheet: View {
 
     // MARK: Acting
 
+    /// Writes what is typed. A testable source is then tested with it, and the sheet closes on
+    /// its own once the source says yes, so a key that worked never leaves you wondering whether
+    /// it took; a refusal, a failure or a shape warning keeps the sheet open to say so.
     private func save() {
+        let saved = pending.first?.value
         var warnings: [String] = []
         for (field, value) in pending {
             do {
@@ -234,14 +238,31 @@ struct IntegrationSetupSheet: View {
         // Gone as soon as it is written: nothing holds a credential for longer than the save.
         typed = [:]
         outcome = nil
-        if warnings.isEmpty {
-            caption = IntegrationSetup.isTestable(source)
-                ? "Saved. Press Test to have \(displayName) confirm it."
-                : "Saved."
+        if warnings.isEmpty, IntegrationSetup.isTestable(source), let saved {
+            saveThenTest(saved)
+        } else if warnings.isEmpty {
+            caption = "Saved."
             captionLevel = .ok
         } else {
             caption = warnings.joined(separator: " ")
             captionLevel = .attention
+        }
+    }
+
+    private func saveThenTest(_ credential: String) {
+        testing = true
+        caption = nil
+        Task {
+            let answer = await model.testIntegration(source, credential: credential)
+            testing = false
+            if case .ok = answer {
+                dismiss()
+                model.settingsToast(L10n.format("%@ key saved and verified", displayName))
+            } else {
+                caption = "Saved."
+                captionLevel = .ok
+                outcome = answer
+            }
         }
     }
 
