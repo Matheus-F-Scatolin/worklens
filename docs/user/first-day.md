@@ -90,7 +90,9 @@ all invented, drawn by the same Today and Weeks pages your own days
 use. A ribbon across the top says so, and its second line says what happens next: "Your first
 moments show up in about a minute.", or the one thing in the way (Screen Recording, the Gemini
 key, a pause, capture stopped, the day's budget). **Leave sample week** goes back to your own
-days, and the sample does not come back on its own after that.
+days, and the sample does not come back on its own after that. The welcome window's tour does
+the same when it ends, so after setting up you are on your own days, empty until your first
+moments arrive; Settings → Advanced → **Show sample week** brings it back.
 
 The sample lives in its own file under `sample-week/` in the data directory, and nothing but
 that window reads it: Claude over MCP, the `worklens` commands, search, spend, retention, deletes
