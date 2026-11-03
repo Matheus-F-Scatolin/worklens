@@ -109,6 +109,6 @@ meeting minutes to its `byProject` row as `meetingMinutes`, leaving the screen `
 | Stored | calendar events as meeting blocks (title, attendees, their responses) |
 | Sent to a model | those blocks, as timeline context |
 | Sent to Google | the OAuth exchange (client id and secret, the authorisation code, a refresh token on renewal), then read-only Calendar requests for your own account |
-| Where the grant lives | whichever you chose when you connected: your **Keychain** under `dev.worklens.google`, or `DATA_DIR/google-token.json` at 0600 (`GOOGLE_TOKEN_STORE`) |
+| Where the grant lives | your **Keychain** under `dev.worklens.google`, or `DATA_DIR/google-token.json` at 0600 on a build with no Team ID; Settings → Advanced changes it (`GOOGLE_TOKEN_STORE`) |
 | How long it lasts | 7 days, while the consent screen is in Testing — then the card reads "Paused until you reconnect" and **Reconnect** starts it again |
 | To turn it off | **Disconnect** in Settings → Connections, which revokes at Google and deletes the token |
