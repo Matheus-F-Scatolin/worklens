@@ -196,6 +196,13 @@ struct TourStateTests {
         #expect(!again)
         #expect(state.stop == .week)
 
+        // Back is gone too, so the rail button is the one thing left to press.
+        var waiting = TourState(index: TourState.stops.firstIndex(of: .openWeeks)!)
+        #expect(!waiting.canGoBack(anchorFound: true))
+        #expect(waiting.canGoBack(anchorFound: false))
+        waiting.apply(.back, anchorFound: true)
+        #expect(waiting.stop == .openWeeks, "← does nothing while the button is there")
+
         var lost = TourState(index: TourState.stops.firstIndex(of: .openWeeks)!)
         lost.apply(.next, anchorFound: false)
         #expect(lost.stop == .week, "with the rail button missing, Next is how you go on")
@@ -285,7 +292,7 @@ struct TourStateTests {
         var state = TourState()
         state.apply(.next)
         state.apply(.next)
-        state.apply(.back)
+        state.apply(.back, anchorFound: false)
         #expect(state.stop == .moment)
         state.apply(.skip)
         #expect(state.outcome == .skipped)

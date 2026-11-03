@@ -44,8 +44,9 @@ public enum TourStop: String, Sendable, CaseIterable, Equatable, Hashable, Ident
 
     /// The page this step waits for you to open, or nil for a step that waits for Next.
     ///
-    /// A step that waits hides Next while its rail button is cut out, and lets the click through
-    /// to it. When the button cannot be found the step keeps Next, so nobody is ever stuck on it.
+    /// A step that waits hides Next and Back while its rail button is cut out, and lets the click
+    /// through to it, so the button is the one thing left to press. When the button cannot be
+    /// found the step keeps both, so nobody is ever stuck on it.
     public var waitsFor: ReaderPlace? {
         self == .openWeeks ? .weeks : nil
     }
@@ -268,6 +269,13 @@ public struct TourState: Equatable, Sendable {
         stop.waitsFor == nil || !anchorFound
     }
 
+    /// Whether Back can be pressed. Not on the first stop, and not on a step that waits for a
+    /// click it can see: with Next gone, a Back there was the only button on the card, and
+    /// people pressed it instead of the rail button the card was pointing at.
+    public func canGoBack(anchorFound: Bool) -> Bool {
+        !isFirst && canGoNext(anchorFound: anchorFound)
+    }
+
     /// `place` is showing. On a step waiting for it, the tour goes on by itself; anywhere else
     /// nothing happens. True when the tour moved.
     @discardableResult
@@ -278,11 +286,11 @@ public struct TourState: Equatable, Sendable {
     }
 
     /// A key press or a card button. `anchorFound` is whether the current stop's view is on
-    /// screen: Next does nothing on a step waiting for a click it can see.
+    /// screen: Next and Back do nothing on a step waiting for a click it can see.
     public mutating func apply(_ command: TourCommand, anchorFound: Bool = true) {
         switch command {
         case .next: if canGoNext(anchorFound: anchorFound) { next() }
-        case .back: back()
+        case .back: if canGoBack(anchorFound: anchorFound) { back() }
         case .skip: skip()
         }
     }

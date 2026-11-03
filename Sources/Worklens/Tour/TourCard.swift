@@ -5,7 +5,8 @@ import WorklensCore
 /// as caps where the stop is about keys, and Back / Next / Skip.
 ///
 /// #357: Skip is only on a tour from Settings; the first run has none. On a step that asks you
-/// to click a rail button, Next is gone while that button is cut out, and back when it is not.
+/// to click a rail button, Next and Back are gone while that button is cut out, and back when it
+/// is not.
 ///
 /// The same card sits in the reader window and in the panel under the menu-bar ring. It takes
 /// the accessibility focus whenever the stop changes, and `TourController` announces the stop.
@@ -58,8 +59,10 @@ struct TourCard: View {
                     .font(ReaderTheme.Size.small)
             }
             HStack {
-                Button(TourCopy.back) { tour.back() }
-                    .disabled(state.isFirst)
+                if state.canGoNext(anchorFound: tour.anchorFound) {
+                    Button(TourCopy.back) { tour.back() }
+                        .disabled(!state.canGoBack(anchorFound: tour.anchorFound))
+                }
                 Spacer(minLength: 8)
                 if state.canGoNext(anchorFound: tour.anchorFound) {
                     Button(state.nextLabel) { tour.next() }
