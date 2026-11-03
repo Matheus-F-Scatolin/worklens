@@ -2,7 +2,20 @@
 
 **Settings → Connections → Google Calendar → Connect…** walks through all of this with the
 console pages linked, checks the shape of both credentials as you paste them, and connects in the same
-sheet. The steps below are what it walks you through.
+sheet.
+
+## Let an agent do the Google Cloud part
+
+The sheet opens on **Copy setup prompt**. Paste the prompt into Claude Code, Codex or any agent
+that can use your browser, and it creates the project, enables the Calendar API, sets up the
+consent screen in Testing with you as its test user, and makes a Desktop OAuth client. It stops
+whenever Google wants you to sign in, accept terms or confirm something, and it never copies the
+client id or secret into its chat: it leaves Google's dialog open and tells you to paste both
+into the sheet yourself. Then **Connect Google…** is yours, as below.
+
+## Or do it yourself
+
+**Or do it yourself**, under the prompt, opens the same steps:
 
 1. https://console.cloud.google.com → create or pick a project.
 2. **APIs & Services → Library** → enable the **Google Calendar API**.
@@ -96,6 +109,6 @@ meeting minutes to its `byProject` row as `meetingMinutes`, leaving the screen `
 | Stored | calendar events as meeting blocks (title, attendees, their responses) |
 | Sent to a model | those blocks, as timeline context |
 | Sent to Google | the OAuth exchange (client id and secret, the authorisation code, a refresh token on renewal), then read-only Calendar requests for your own account |
-| Where the grant lives | whichever you chose when you connected: your **Keychain** under `dev.worklens.google`, or `DATA_DIR/google-token.json` at 0600 (`GOOGLE_TOKEN_STORE`) |
+| Where the grant lives | your **Keychain** under `dev.worklens.google`, or `DATA_DIR/google-token.json` at 0600 on a build with no Team ID; Settings → Advanced changes it (`GOOGLE_TOKEN_STORE`) |
 | How long it lasts | 7 days, while the consent screen is in Testing — then the card reads "Paused until you reconnect" and **Reconnect** starts it again |
 | To turn it off | **Disconnect** in Settings → Connections, which revokes at Google and deletes the token |

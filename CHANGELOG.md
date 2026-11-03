@@ -15,6 +15,10 @@ and opening a fresh empty one above it.
 ## [Unreleased]
 
 ### Added
+- **Google Calendar setup starts with Copy setup prompt.** It copies a prompt for Claude Code
+  or Codex that sets up the Google Cloud project, API, consent screen and OAuth client in your
+  browser, stops for every sign-in or confirmation, and ends by telling you the two values to
+  paste into the sheet. The manual steps are under **Or do it yourself**.
 - **One line removes Worklens.** `scripts/uninstall.sh`, also `make uninstall` and the same
   `curl` line as the install, undoes what setup put on the Mac: it quits the app, takes only the
   `worklens` server out of Claude Desktop's, Claude Code's and Codex's MCP settings (keeping a

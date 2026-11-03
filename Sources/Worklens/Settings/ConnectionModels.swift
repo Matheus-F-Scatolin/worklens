@@ -24,6 +24,9 @@ struct IntegrationSetupSheet: View {
     @State private var captionLevel: StatusLevel = .neutral
     @State private var testing = false
     @State private var outcome: IntegrationTester.Outcome?
+    /// The manual steps, folded under the setup prompt on a source that has one.
+    @State private var showsSteps = false
+    @State private var copiedPrompt = false
     @ScaledMetric(relativeTo: .body) private var fieldWidth = Theme.Layout.field
 
     private var fields: [IntegrationField] { IntegrationSetup.fields(for: source) }
@@ -36,7 +39,18 @@ struct IntegrationSetupSheet: View {
                     if let requirement = IntegrationSetup.requirement(for: source) {
                         SettingsNote(text: requirement, level: .attention)
                     }
-                    steps
+                    if let prompt = IntegrationSetup.agentPrompt(for: source) {
+                        agentSetup(prompt)
+                        DisclosureGroup(
+                            String(localized: "Or do it yourself", comment: "Disclosure"),
+                            isExpanded: $showsSteps
+                        ) {
+                            steps.padding(.top, Theme.Space.row)
+                        }
+                        .font(Theme.Text.rowBody)
+                    } else {
+                        steps
+                    }
                     credentials
                     if isGoogle { google }
                     if let caption {
@@ -79,6 +93,28 @@ struct IntegrationSetupSheet: View {
                 .font(Theme.Text.rowBody)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// The default way through the Google Cloud half: a prompt for Claude Code or Codex, which
+    /// does it in your browser and ends by telling you what to paste below. The steps it stands
+    /// in for are one click away under it.
+    private func agentSetup(_ prompt: String) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.row) {
+            Text(String(localized: "Let an agent set it up", comment: "Label"))
+                .font(Theme.Text.sectionHeader).foregroundStyle(.secondary)
+            Text(String(localized: "Paste this prompt into Claude Code or Codex. It sets up Google Cloud in your browser, stops whenever Google needs you, then tells you the two values to paste below.", comment: "Label"))
+                .font(Theme.Text.rowBody)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(copiedPrompt
+                ? String(localized: "Copied", comment: "Button")
+                : String(localized: "Copy setup prompt", comment: "Button")
+            ) {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(prompt, forType: .string)
+                copiedPrompt = true
+            }
+            .buttonStyle(.borderedProminent)
         }
     }
 
