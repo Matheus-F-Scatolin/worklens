@@ -34,10 +34,9 @@ under `dev.worklens.google` — you can see it in Keychain Access and revoke Wor
 myaccount.google.com/permissions like any other app. Nothing lands in `DATA_DIR`, so a backup of
 your data folder carries no credentials — unless you pick the **data folder** instead, which puts
 the grant in `DATA_DIR/google-token.json` at mode 0600 and makes a backup of that folder worth
-guarding. The Google Calendar setup sheet asks which one you want as you connect, and pre-selects the
-data folder on a build with no Apple Developer Team ID — on those the keychain asks for your
-login password again after every rebuild, and nothing the app can do prevents that. Changing
-your mind later is one choice in Settings → Advanced → **Keep the Google sign-in in**: it
+guarding. Connecting does not ask: it uses the data folder on a build with no Apple Developer
+Team ID — on those the keychain asks for your login password again after every rebuild, and
+nothing the app can do prevents that — and the keychain otherwise. Changing it is one choice in Settings → Advanced → **Keep the Google sign-in in**: it
 disconnects from the old store, revoking the grant at Google, and reconnects into the new one. Revoking at Google works the same either way, and
 **Disconnect** in Settings → Connections revokes and deletes it.
 

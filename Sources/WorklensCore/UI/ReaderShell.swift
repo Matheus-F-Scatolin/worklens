@@ -77,6 +77,36 @@ public enum ReaderShellCopy {
     public static let nextWeek = L10n.string("Next week")
     public static let todayNothing = L10n.string("Nothing recorded on this day yet.")
     public static let weekNothing = L10n.string("Nothing recorded in this week yet.")
+    /// Under an empty Today or this week's empty Weeks while capture is running: nothing is
+    /// asked of you, so the page says so rather than leaving you to look for a step.
+    public static let fillsInByItself = L10n.string(
+        "There is nothing else to do here. Worklens records on its own from now on, and what you work on shows up in about a minute.")
+
+    /// The line under an empty page: that it fills in by itself, or the one thing in the way.
+    /// Nil for a day or a week that is over, where nothing more is coming. A nil selection is
+    /// a reader with no days at all, which is always now.
+    public static func emptyDetail(
+        selection: ReaderSelection?,
+        setup: SetupProgress,
+        scheduler: SchedulerState,
+        now: Date = Date(),
+        timeZone: TimeZone = .current,
+        locale: Locale = .autoupdatingCurrent
+    ) -> String? {
+        switch selection {
+        case nil:
+            break
+        case let .day(day):
+            guard day == DayBoundaries.dayString(now, timeZone: timeZone) else { return nil }
+        case let .week(monday):
+            let week = ISOWeek.parse(monday, timeZone: timeZone)
+                ?? ISOWeek.containing(dayString: monday, timeZone: timeZone)
+            guard week != nil, week == ISOWeek.containing(now, timeZone: timeZone) else { return nil }
+        }
+        return SampleWeekHandoff.inTheWay(
+            setup: setup, scheduler: scheduler, now: now, timeZone: timeZone, locale: locale
+        ) ?? fillsInByItself
+    }
 
     /// `Tuesday, 22 September`, in the viewer's own order and language.
     public static func dayTitle(

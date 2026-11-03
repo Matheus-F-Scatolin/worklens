@@ -60,8 +60,12 @@ struct ReaderView: View {
         if !model.readerIndexLoaded {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if !model.readerHasDays {
-            // Nothing recorded yet: Today's own plain sentence, and nothing invented to fill it.
-            ReaderMessage(symbol: "sun.max", title: ReaderShellCopy.todayNothing, detail: nil)
+            // Nothing recorded yet: Today's own plain sentence, nothing invented to fill it, and
+            // under it that the page fills in by itself, or the one thing in the way.
+            ReaderMessage(
+                symbol: "sun.max", title: ReaderShellCopy.todayNothing,
+                detail: model.readerEmptyDetail(for: nil)
+            )
         } else {
             switch model.readerPlace {
             case .today:
@@ -72,7 +76,10 @@ struct ReaderView: View {
                 } else if model.readerLoading {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    ReaderMessage(symbol: "calendar", title: ReaderShellCopy.weekNothing, detail: nil)
+                    ReaderMessage(
+                        symbol: "calendar", title: ReaderShellCopy.weekNothing,
+                        detail: model.readerEmptyDetail(for: model.readerSelection)
+                    )
                 }
             }
         }
@@ -138,6 +145,28 @@ struct ReaderMessage: View {
         }
         .padding(Theme.Space.pane)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// An empty Today or Weeks inside its page: the plain sentence, and under it that the page fills
+/// in by itself or what is in the way, when the page is still now.
+struct EmptyPageLines: View {
+    let title: String
+    let detail: String?
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text(title)
+                .foregroundStyle(ReaderTheme.muted)
+            if let detail {
+                Text(detail)
+                    .font(.callout)
+                    .foregroundStyle(ReaderTheme.muted)
+                    .frame(maxWidth: Theme.ReaderWindow.cardWidth)
+            }
+        }
+        .multilineTextAlignment(.center)
         .accessibilityElement(children: .combine)
     }
 }

@@ -35,6 +35,12 @@ and opening a fresh empty one above it.
   Worklens was closed, and summaries from the offline fake no longer count as your first day.
 
 ### Changed
+- **An empty Today or Weeks says it fills in by itself.** While capture is running, the page
+  under "Nothing recorded…" now says there is nothing else to do and your work shows up in about
+  a minute; when something is in the way (Screen Recording, the key, a pause) it names that
+  instead. A day or week that is over keeps the plain line.
+- **Connecting Google no longer asks where to keep the sign-in.** It uses the store that works
+  on your build; Settings → Advanced → **Keep the Google sign-in in** still changes it.
 - Settings → Log is now Settings → Projects, named for what it holds: the projects your time is
   grouped under and **Learn from recent days**. `worklens settings --tab projects` opens it, and
   `--tab log` still does.

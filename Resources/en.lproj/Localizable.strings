@@ -229,7 +229,6 @@
 "Keep going" = "Keep going";
 "Keep history for" = "Keep history for";
 "Keep the Google sign-in in" = "Keep the Google sign-in in";
-"Keep the sign-in in" = "Keep the sign-in in";
 "Keeps a long read or a video on the timeline." = "Keeps a long read or a video on the timeline.";
 "Key" = "Key";
 "Keystrokes. The only thing it asks the input system is how long ago you last touched the keyboard or mouse, so it can tell whether you are there. Not what you pressed." = "Keystrokes. The only thing it asks the input system is how long ago you last touched the keyboard or mouse, so it can tell whether you are there. Not what you pressed.";
@@ -640,3 +639,4 @@
 
 /* First-summary notification */
 "Worklens summarized your first screenshot: “%@” Click to open the Today page." = "Worklens summarized your first screenshot: “%@” Click to open the Today page.";
+"There is nothing else to do here. Worklens records on its own from now on, and what you work on shows up in about a minute." = "There is nothing else to do here. Worklens records on its own from now on, and what you work on shows up in about a minute.";

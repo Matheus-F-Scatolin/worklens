@@ -618,4 +618,30 @@ struct SampleWeekTests {
         )
         #expect(afterHandoff == nil)
     }
+
+    @Test("an empty page that is still now says it fills in by itself, or what is in the way")
+    func emptyDetail() {
+        let done = SetupProgress(screenRecording: true, geminiKey: true, onboardedAt: Self.wednesday)
+        let today = DayBoundaries.dayString(Self.wednesday)
+        let detail = { (selection: ReaderSelection?, setup: SetupProgress, scheduler: SchedulerState) in
+            ReaderShellCopy.emptyDetail(
+                selection: selection, setup: setup, scheduler: scheduler,
+                now: Self.wednesday, locale: Format.fixed
+            )
+        }
+        #expect(detail(nil, done, .running) == ReaderShellCopy.fillsInByItself)
+        #expect(detail(.day(today), done, .idle) == ReaderShellCopy.fillsInByItself)
+        let thisWeek = ISOWeek.containing(Self.wednesday)!.start
+        #expect(detail(.week(thisWeek), done, .running) == ReaderShellCopy.fillsInByItself)
+        #expect(detail(.week(today), done, .running) == ReaderShellCopy.fillsInByItself)
+        // Something in the way: that, never "nothing else to do".
+        var noGrant = done
+        noGrant.screenRecording = false
+        #expect(detail(nil, noGrant, .running) == "Screen Recording permission needed")
+        #expect(detail(.day(today), done, .paused(until: nil)) == "Paused until you resume")
+        // Over: nothing more is coming, so no line.
+        let monday = Self.wednesday.addingTimeInterval(-9 * 86_400)
+        #expect(detail(.day(DayBoundaries.dayString(monday)), done, .running) == nil)
+        #expect(detail(.week(ISOWeek.containing(monday)!.start), done, .running) == nil)
+    }
 }
