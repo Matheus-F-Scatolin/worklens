@@ -72,6 +72,24 @@ public extension ContextEventStore {
         }
     }
 
+    /// The source-side ids of one source's events that overlap `window`: what a complete listing
+    /// of that window should name again. A row with no end is taken to last the assumed meeting.
+    func externalIds(source: ContextSource, overlapping window: DateInterval) throws -> [String] {
+        let openEndedFrom = window.start.addingTimeInterval(-ContextEvent.assumedMeetingDuration)
+        return try database.writer.read { db in
+            try String.fetchAll(
+                db,
+                ContextEvent
+                    .select(Column("external_id"))
+                    .filter(Column("source") == source.rawValue && Column("start_at") < window.end)
+                    .filter(
+                        Column("end_at") > window.start
+                            || (Column("end_at") == nil && Column("start_at") > openEndedFrom)
+                    )
+            )
+        }
+    }
+
     func count(source: ContextSource) throws -> Int {
         try database.writer.read { db in
             try Int.fetchOne(
