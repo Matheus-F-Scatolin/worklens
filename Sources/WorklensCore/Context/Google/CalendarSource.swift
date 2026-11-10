@@ -18,6 +18,17 @@ public struct CalendarSource: ContextSyncSource {
     /// Locations that mean "this is a video call" when there is no `conferenceData`.
     public static let conferenceHints = ["zoom.us", "meet.google.com", "teams.microsoft.com", "webex.com"]
 
+    /// The longest a timed event can run and still count as a meeting. Past it, the end time is a
+    /// typo or the event is a block of availability: a "call" from Monday to Thursday once laid
+    /// three days of meeting over every hour of screen time under it.
+    public static let longestMeeting: TimeInterval = 12 * 3600
+
+    /// How far into the window a stored event must reach before a listing that leaves it out may
+    /// remove it. Google matches an all-day entry by the calendar's time zone and Worklens stores it
+    /// by the Mac's, so on the window's trailing edge the two can disagree by up to a day's offset.
+    /// A row dropped there by mistake would never come back, because it is about to leave the window.
+    public static let reconcileMargin: TimeInterval = 14 * 3600
+
     private let auth: GoogleAuth
     private let http: ContextHTTP
 
@@ -36,6 +47,8 @@ public struct CalendarSource: ContextSyncSource {
         let token = try await auth.token()
         var result = SyncResult()
         var pageToken: String?
+        var listed = Set<String>()
+        var listedEverything = false
 
         for _ in 0..<CalendarSource.maxPages {
             try Task.checkCancellation()
@@ -62,6 +75,7 @@ public struct CalendarSource: ContextSyncSource {
 
             for item in page["items"]?.arrayValue ?? [] {
                 guard let id = item["id"]?.stringValue?.nonEmpty else { continue }
+                listed.insert(id)
                 if item["status"]?.stringValue == "cancelled" {
                     // Not an error: an event you declined out of existence should leave no trace.
                     if try store.delete(source: .calendar, externalId: id, config: config) {
@@ -82,8 +96,25 @@ public struct CalendarSource: ContextSyncSource {
                 }
             }
 
-            guard let next = page["nextPageToken"]?.stringValue?.nonEmpty else { break }
+            guard let next = page["nextPageToken"]?.stringValue?.nonEmpty else {
+                listedEverything = true
+                break
+            }
             pageToken = next
+        }
+
+        // `showDeleted` is not a promise: Google reports a deletion reliably only to an incremental
+        // sync, and an event its organizer deleted outright simply stops being listed. So whatever
+        // this window held before and the listing no longer names is gone. Only after a listing
+        // that reached its last page; a cut-off one says nothing about what it did not reach.
+        if listedEverything {
+            let reconciled = DateInterval(
+                start: min(window.start.addingTimeInterval(Self.reconcileMargin), window.end),
+                end: window.end
+            )
+            for id in try store.externalIds(source: .calendar, overlapping: reconciled) where !listed.contains(id) {
+                if try store.delete(source: .calendar, externalId: id, config: config) { result.updated += 1 }
+            }
         }
         return result
     }
@@ -107,8 +138,9 @@ public struct CalendarSource: ContextSyncSource {
             bodyMd: ContextBody.inline(item["description"]?.stringValue),
             bodyPath: nil,
             // An all-day entry is a label on the day, not an hour you sat in a call; a meeting you
-            // declined is one you did not attend.
-            isMeeting: !allDay && !declined && isConference(item),
+            // declined is one you did not attend; one that runs for days is not a call at all.
+            isMeeting: !allDay && !declined && end.timeIntervalSince(start) <= longestMeeting
+                && isConference(item),
             rawJson: GranolaSource.encode(trimmed(item))
         )
     }

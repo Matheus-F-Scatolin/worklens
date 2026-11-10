@@ -66,8 +66,9 @@ The requested scopes are the narrowest that work:
 | `calendar.readonly` | read events on your primary calendar |
 | `openid`, `email` | learn which account you connected, to label it |
 
-Calendar events become meeting blocks (title, attendees and their responses); an all-day entry or
-one you declined is recorded but is not counted as meeting time.
+Calendar events become meeting blocks (title, attendees and their responses). An all-day entry,
+one you declined, or a timed event longer than 12 hours is recorded but is not counted as meeting
+time. An event its organizer deletes leaves your timeline at the next sync.
 
 **If you connected Google before 23 September 2026**, that sign-in also granted `gmail.metadata`
 for the Gmail source, which was removed then (#285). Nothing forces a reconnect: the same grant

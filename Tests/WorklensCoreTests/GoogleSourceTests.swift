@@ -455,6 +455,24 @@ struct CalendarSourceTests {
         #expect(!event.isMeeting)
     }
 
+    @Test("a call that runs for days is a typo or a hold, not a meeting")
+    func multiDayIsNotAMeeting() throws {
+        let threeDays = try #require(CalendarSource.map(try json("""
+        {"id": "evt-4", "status": "confirmed", "summary": "Catch-up",
+         "start": {"dateTime": "2026-11-09T10:00:00-03:00"}, "end": {"dateTime": "2026-11-12T10:30:00-03:00"},
+         "hangoutLink": "https://meet.google.com/x"}
+        """)))
+        #expect(!threeDays.isMeeting)
+        #expect(threeDays.endAt == ContextDates.parseISO8601("2026-11-12T13:30:00Z"))
+
+        let workshop = try #require(CalendarSource.map(try json("""
+        {"id": "evt-5", "status": "confirmed", "summary": "Workshop",
+         "start": {"dateTime": "2026-09-07T08:00:00Z"}, "end": {"dateTime": "2026-09-07T20:00:00Z"},
+         "hangoutLink": "https://meet.google.com/x"}
+        """)))
+        #expect(workshop.isMeeting)
+    }
+
     @Test("conferencing is detected from conferenceData and from the location, not just hangoutLink")
     func conferenceDetection() throws {
         #expect(CalendarSource.isConference(try json("""
@@ -492,6 +510,36 @@ struct CalendarSourceTests {
         )
         #expect(try await after.sync(window: window, into: store, config: config).updated == 1)
         #expect(try store.find(source: .calendar, externalId: "evt-1") == nil)
+    }
+
+    @Test("an event the listing stops naming is removed, except on the window's trailing edge")
+    func unlistedIsRemoved() async throws {
+        let config = googleConfig()
+        defer { try? FileManager.default.removeItem(at: config.dataDir) }
+        let db = try Database.inMemory()
+        let store = ContextEventStore(db)
+        // Ends at 10:00 on the window's first day, inside the margin a listing may disagree on.
+        let edge = """
+        {"id": "evt-edge", "status": "confirmed", "summary": "Early",
+         "start": {"dateTime": "2026-09-06T09:00:00Z"}, "end": {"dateTime": "2026-09-06T10:00:00Z"}}
+        """
+
+        let firstStub = Stub([.json("{\"items\": [\(timed), \(edge)]}")])
+        let source = CalendarSource(
+            auth: connectedAuth(config),
+            http: ContextHTTP(session: firstStub.session, minimumSpacing: 0, maxRetries: 0, sleeper: { _ in })
+        )
+        #expect(try await source.sync(window: window, into: store, config: config).inserted == 2)
+
+        // The organizer deleted both outright: Google lists neither, not even as cancelled.
+        let secondStub = Stub([.json("{\"items\": []}")])
+        let after = CalendarSource(
+            auth: connectedAuth(config),
+            http: ContextHTTP(session: secondStub.session, minimumSpacing: 0, maxRetries: 0, sleeper: { _ in })
+        )
+        #expect(try await after.sync(window: window, into: store, config: config).updated == 1)
+        #expect(try store.find(source: .calendar, externalId: "evt-1") == nil)
+        #expect(try store.find(source: .calendar, externalId: "evt-edge") != nil)
     }
 
     @Test("pages are followed and the window is passed as RFC 3339")
