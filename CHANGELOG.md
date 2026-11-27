@@ -15,6 +15,14 @@ and opening a fresh empty one above it.
 ## [Unreleased]
 
 ### Added
+- **The install rehearsal.** `make rehearse` installs a second app, Worklens Rehearsal, with its
+  own bundle identifier, folder, keychain item, `worklens-rehearsal` command and MCP entry, and
+  walks you through a new person's first install with it: the real welcome window, Screen
+  Recording, Connect for your Claude or ChatGPT plan, real screenshots and summaries. The
+  download and the command line tools install are simulated. Each step is pass, fail or skip,
+  and the answers go to a dated report. `make rehearse-clean` removes it all. Neither ever
+  touches the real app, and every script refuses a path that is the real app's. See
+  `docs/rehearsal.md`.
 - **Summaries through your Claude or ChatGPT plan.** With `SUMMARY_PROVIDERS` set to any of
   `claude`, `codex` and `gemini`, in the order to try them, Worklens summarizes screenshots
   through your own signed-in `claude` or `codex` command instead of, or before, a Gemini key.

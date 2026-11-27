@@ -39,8 +39,7 @@ public struct SettingsStore: Sendable {
     }
 
     public static var defaultURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Worklens/settings.json")
+        Config.appSupportDir().appendingPathComponent("settings.json")
     }
 
     // MARK: Reading

@@ -119,7 +119,7 @@ public struct MCPClientConfig: Sendable, Equatable {
 
     /// Parses the file's bytes. Pure: the caller does the reading, so a test needs no home
     /// directory and the live path needs no special case.
-    public static func parse(_ data: Data) -> Entry {
+    public static func parse(_ data: Data, identity: AppIdentity = .current) -> Entry {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return .unreadable("not valid JSON")
         }
@@ -128,10 +128,15 @@ public struct MCPClientConfig: Sendable, Equatable {
         }
         // docs/user/claude-desktop.md names the server `worklens`; anything else is the user's
         // own name for it, so fall back to whichever entry launches a binary called Worklens.
-        let named = servers["worklens"] as? [String: Any]
-        let byCommand = servers.values.compactMap { $0 as? [String: Any] }.first {
-            ($0["command"] as? String)?.hasSuffix("/Worklens") == true
-        }
+        // The install rehearsal reads `worklens-rehearsal` and only its own bundle's binary, and
+        // the real app never takes the rehearsal's entry for its own (`AppIdentity`).
+        let named = servers[identity.mcpServerName] as? [String: Any]
+        let byCommand = servers.keys.sorted().compactMap { key -> [String: Any]? in
+            guard let entry = servers[key] as? [String: Any],
+                  identity.claimsMCPEntry(key: key, command: entry["command"] as? String)
+            else { return nil }
+            return entry
+        }.first
         guard let entry = named ?? byCommand else { return .notConfigured }
         guard let command = entry["command"] as? String else {
             return .unreadable("the worklens entry has no \"command\"")
@@ -213,7 +218,7 @@ public struct MCPClientConfig: Sendable, Equatable {
 
     /// The key `mcpServers` holds this server under. `parse` already treats any other name as
     /// the user's own, and reading it back is how the health check finds an entry a user renamed.
-    public static let serverName = "worklens"
+    public static var serverName: String { AppIdentity.current.mcpServerName }
 
     /// Builds the entry for a binary. `executable` is resolved in the `Worklens` target
     /// (`Bundle.main.executableURL`) and passed in, because `WorklensCore` must stay testable
@@ -361,13 +366,15 @@ public struct MCPClientConfig: Sendable, Equatable {
     /// top-level keys, and any entry the user renamed. A file that does not parse is an error
     /// rather than a fresh start.
     @discardableResult
-    public static func install(_ plan: Plan, at url: URL, now: Date = Date()) throws -> Installation {
+    public static func install(
+        _ plan: Plan, at url: URL, now: Date = Date(), identity: AppIdentity = .current
+    ) throws -> Installation {
         let manager = FileManager.default
         var object: [String: Any] = [:]
         var backup: URL?
         let existed = manager.fileExists(atPath: url.path)
 
-        if isTOML(url) { return try installTOML(plan, at: url, now: now) }
+        if isTOML(url) { return try installTOML(plan, at: url, now: now, identity: identity) }
 
         if existed {
             guard let data = try? Data(contentsOf: url) else {
@@ -395,7 +402,7 @@ public struct MCPClientConfig: Sendable, Equatable {
         // regardless would leave that entry behind, still launching the old path, while health
         // — which finds the new one first — reported everything fine. So the entry that is
         // already there is the one that gets repointed, under the name its owner gave it.
-        servers[renamedEntryKey(in: servers) ?? serverName] = plan.entry
+        servers[renamedEntryKey(in: servers, identity: identity) ?? identity.mcpServerName] = plan.entry
         object["mcpServers"] = servers
 
         do {
@@ -413,7 +420,9 @@ public struct MCPClientConfig: Sendable, Equatable {
     }
 
     /// `install` for Codex: the same backup and the same refusal, with `MCPTOML` doing the edit.
-    private static func installTOML(_ plan: Plan, at url: URL, now: Date) throws -> Installation {
+    private static func installTOML(
+        _ plan: Plan, at url: URL, now: Date, identity: AppIdentity
+    ) throws -> Installation {
         let manager = FileManager.default
         let existed = manager.fileExists(atPath: url.path)
         var text = ""
@@ -424,11 +433,11 @@ public struct MCPClientConfig: Sendable, Equatable {
             }
             text = String(decoding: data, as: UTF8.self)
             // Refuse before the backup, as the JSON side does for a file that does not parse.
-            let updated = try MCPTOML.installing(plan, into: text)
+            let updated = try MCPTOML.installing(plan, into: text, identity: identity)
             backup = try keepBackup(of: data, beside: url, now: now)
             text = updated
         } else {
-            text = try MCPTOML.installing(plan, into: "")
+            text = try MCPTOML.installing(plan, into: "", identity: identity)
         }
         do {
             try manager.createDirectory(
@@ -479,17 +488,17 @@ public struct MCPClientConfig: Sendable, Equatable {
     ///
     /// Connections asks this before it removes anything, so it can name the key it is about to
     /// take out instead of promising to remove something that may not be there.
-    public static func installedKey(at url: URL) -> String? {
+    public static func installedKey(at url: URL, identity: AppIdentity = .current) -> String? {
         if isTOML(url) {
             guard let data = try? Data(contentsOf: url) else { return nil }
-            return MCPTOML.installedKey(in: String(decoding: data, as: UTF8.self))
+            return MCPTOML.installedKey(in: String(decoding: data, as: UTF8.self), identity: identity)
         }
         guard let data = try? Data(contentsOf: url),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let servers = object["mcpServers"] as? [String: Any]
         else { return nil }
-        if servers[serverName] != nil { return serverName }
-        return renamedEntryKey(in: servers)
+        if servers[identity.mcpServerName] != nil { return identity.mcpServerName }
+        return renamedEntryKey(in: servers, identity: identity)
     }
 
     /// Copies the file aside and takes out exactly one `mcpServers` key.
@@ -545,10 +554,14 @@ public struct MCPClientConfig: Sendable, Equatable {
     /// The key of an entry the user renamed: no `worklens` key, but one that launches a binary
     /// called `Worklens` — the same entry `parse` falls back to. Nil when `worklens` is there or
     /// nothing matches. Sorted, so a file with two of them resolves the same way every time.
-    static func renamedEntryKey(in servers: [String: Any]) -> String? {
-        guard servers[serverName] == nil else { return nil }
+    static func renamedEntryKey(
+        in servers: [String: Any], identity: AppIdentity = .current
+    ) -> String? {
+        guard servers[identity.mcpServerName] == nil else { return nil }
         return servers.keys.sorted().first {
-            ((servers[$0] as? [String: Any])?["command"] as? String)?.hasSuffix("/Worklens") == true
+            identity.claimsMCPEntry(
+                key: $0, command: (servers[$0] as? [String: Any])?["command"] as? String
+            )
         }
     }
 

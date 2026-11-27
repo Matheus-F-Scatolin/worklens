@@ -263,7 +263,10 @@ def json_key(obj):
         return "worklens"
     for key in sorted(servers):
         entry = servers[key]
-        if isinstance(entry, dict) and str(entry.get("command", "")).endswith("/Worklens"):
+        command = str(entry.get("command", "")) if isinstance(entry, dict) else ""
+        # The install rehearsal (docs/rehearsal.md) is the same binary in another bundle; its
+        # entry is removed by make rehearse-clean, never by this script.
+        if command.endswith("/Worklens") and "/Worklens Rehearsal.app/" not in command:
             return key
     return None
 
@@ -312,7 +315,7 @@ def toml_key(lines):
                 return "worklens"
             continue
         m = COMMAND.match(line)
-        if m and current and len(current) == 2 and current[0] == "mcp_servers" and m.group(2).endswith("/Worklens"):
+        if m and current and len(current) == 2 and current[0] == "mcp_servers" and m.group(2).endswith("/Worklens") and "/Worklens Rehearsal.app/" not in m.group(2):
             renamed.append(current[1])
     return sorted(renamed)[0] if renamed else None
 

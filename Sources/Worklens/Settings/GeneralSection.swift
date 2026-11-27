@@ -211,8 +211,8 @@ struct GeneralSection: View {
                     model.checkForUpdates()
                 }
                 .buttonStyle(.settings)
-                .disabled(model.checkingForUpdates)
-                if AppModel.repoRoot != nil, model.updateOffered {
+                .disabled(model.checkingForUpdates || !AppIdentity.current.updatesInPlace)
+                if AppModel.updateRepoRoot != nil, model.updateOffered {
                     Button(String(localized: "Update and restart…", comment: "Button")) { model.updateAndRestart() }
                         .buttonStyle(.settings)
                 }
@@ -221,6 +221,7 @@ struct GeneralSection: View {
     }
 
     private var updateLine: String {
+        if !AppIdentity.current.updatesInPlace { return AppModel.rehearsalUpdateLine }
         if let available = model.updateAvailableLine { return available }
         if let checked = model.updateCheckLine { return checked }
         return model.config.autoUpdateEnabled

@@ -16,7 +16,9 @@
 #     checkout's .env (#34) and pointing an installed app at a checkout would move DATA_DIR out
 #     from under it. `make install-env` is the command that decides that, and only it.
 #
-# usage: scripts/install.sh [--dry-run]
+# usage: scripts/install.sh [--dry-run] [--rehearsal]
+#   --rehearsal  install build/Worklens Rehearsal.app and link `worklens-rehearsal` instead
+#                (the install rehearsal, docs/rehearsal.md); it refuses any real-app path
 #   APPS_DIR   where the bundle goes      (default: /Applications, else ~/Applications)
 #   BIN_DIR    where the symlink goes     (default: /usr/local/bin if it exists and is
 #                                          writable, else ~/.local/bin)
@@ -24,17 +26,23 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 REPO="$PWD"
-APP="build/Worklens.app"
+# shellcheck source=scripts/app-identity.sh
+source scripts/app-identity.sh
 
 DRY_RUN=0
+VARIANT=main
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -n|--dry-run) DRY_RUN=1 ;;
-    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
+    --rehearsal) VARIANT=rehearsal ;;
+    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
     *) echo "error: unknown argument $1" >&2; exit 2 ;;
   esac
   shift
 done
+wl_identity "$VARIANT"
+APP="$WL_BUILD_APP"
+wl_guard "$APP" "$REPO/$APP"
 
 # Every mutating line goes through this, so --dry-run is the same script with the writes turned
 # into echoes rather than a second, drifting description of what it would have done.
@@ -45,6 +53,35 @@ run() {
     "$@"
   fi
 }
+
+# ---------------------------------------------------------------- where the bundle goes
+
+if [[ -n "${APPS_DIR:-}" ]]; then
+  :
+elif [[ -w /Applications ]]; then
+  APPS_DIR=/Applications
+else
+  APPS_DIR="$HOME/Applications"
+  echo "note: /Applications is not writable, installing to $APPS_DIR instead"
+fi
+DEST="$APPS_DIR/$WL_APP_BUNDLE"
+wl_guard "$DEST"
+
+# ---------------------------------------------------------------- where the command goes
+
+# /usr/local/bin does not exist on a clean Apple-silicon Mac and creating it needs sudo, so it is
+# used when it is already there and writable — never created.
+if [[ -n "${BIN_DIR:-}" ]]; then
+  :
+elif [[ -d /usr/local/bin && -w /usr/local/bin ]]; then
+  BIN_DIR=/usr/local/bin
+else
+  BIN_DIR="$HOME/.local/bin"
+fi
+LINK="$BIN_DIR/$WL_CLI"
+# Both destinations are known before anything is checked or copied, so a rehearsal that would
+# land on the real app's paths stops here, having done nothing.
+wl_guard "$LINK"
 
 if [[ ! -d "$REPO/$APP" ]]; then
   echo "error: $APP not found — run 'make build bundle sign' first" >&2
@@ -58,22 +95,10 @@ if ! codesign --verify --strict "$REPO/$APP" 2>/dev/null; then
   exit 1
 fi
 
-# ---------------------------------------------------------------- where the bundle goes
-
-if [[ -n "${APPS_DIR:-}" ]]; then
-  :
-elif [[ -w /Applications ]]; then
-  APPS_DIR=/Applications
-else
-  APPS_DIR="$HOME/Applications"
-  echo "note: /Applications is not writable, installing to $APPS_DIR instead"
-fi
-DEST="$APPS_DIR/Worklens.app"
-
 if [[ -d "$DEST" ]]; then
   previous="$(plutil -extract WLRepoPath raw -o - "$DEST/Contents/Info.plist" 2>/dev/null || true)"
   if [[ -n "$previous" && "$previous" != "$REPO" ]]; then
-    echo "note: replacing an installed Worklens built from $previous"
+    echo "note: replacing an installed $WL_APP_NAME built from $previous"
   fi
 fi
 
@@ -106,18 +131,7 @@ run rm -rf "$DEST"
 run ditto "$REPO/$APP" "$DEST"
 run codesign --verify --strict "$DEST"
 
-# ---------------------------------------------------------------- where the command goes
-
-# /usr/local/bin does not exist on a clean Apple-silicon Mac and creating it needs sudo, so it is
-# used when it is already there and writable — never created.
-if [[ -n "${BIN_DIR:-}" ]]; then
-  :
-elif [[ -d /usr/local/bin && -w /usr/local/bin ]]; then
-  BIN_DIR=/usr/local/bin
-else
-  BIN_DIR="$HOME/.local/bin"
-fi
-LINK="$BIN_DIR/worklens"
+# ---------------------------------------------------------------- the command
 
 # The symlink points into the installed bundle, not into the checkout: run through it, the CLI is
 # the same signed release binary the menu bar is running, reading the same database.
@@ -135,6 +149,6 @@ case ":${PATH}:" in
 esac
 
 echo
-echo "installed. \`worklens --help\` lists the commands; Worklens.app is in $APPS_DIR."
+echo "installed. \`$WL_CLI --help\` lists the commands; $WL_APP_BUNDLE is in $APPS_DIR."
 echo "macOS will ask this copy for Screen Recording the first time it captures, and a"
 echo "permission granted to a terminal does not count for it — they are different applications."

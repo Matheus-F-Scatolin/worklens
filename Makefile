@@ -1,7 +1,7 @@
 # Worklens — SwiftPM only, no Xcode project.
 .PHONY: bootstrap setup build bundle icon sign dev-cert install uninstall run update dev test \
         format format-check lint-strings lint-design test-scripts check doctor-toolchain clean \
-        install-env help
+        install-env rehearse rehearse-clean help
 
 SHELL := /bin/bash
 APP := build/Worklens.app
@@ -73,6 +73,12 @@ install:  ## Copy the app to /Applications and put a `worklens` command on PATH
 uninstall:  ## Remove what setup put on this Mac, keeping your data (UNINSTALL_ARGS=--dry-run prints the list; --delete-data deletes the data too)
 	scripts/uninstall.sh $(UNINSTALL_ARGS)
 
+rehearse:  ## Rehearse a first install with a second app, Worklens Rehearsal, then a checklist and a report (REHEARSE_ARGS=--dry-run prints the plan; docs/rehearsal.md)
+	scripts/rehearse.sh $(REHEARSE_ARGS)
+
+rehearse-clean:  ## List what the rehearsal added; REHEARSE_CLEAN_ARGS=--yes removes it (--all: its reports too). Never touches the real app
+	scripts/rehearse-clean.sh $(REHEARSE_CLEAN_ARGS)
+
 run:  ## Launch the installed app if there is one, else the bundled one
 	scripts/launch.sh
 
@@ -94,10 +100,11 @@ lint-strings:  ## Check the localization catalogs: every key the code asks for i
 lint-design:  ## Check the design rules: Theme literals, key names in copy, icon buttons
 	@scripts/design-lint.sh
 
-test-scripts:  ## Check scripts/build-progress.sh against captured builds, bootstrap's toolchain step against stand-in tools, scripts/uninstall.sh against a fake home, and the troubleshooting anchors they link to
+test-scripts:  ## Check scripts/build-progress.sh against captured builds, bootstrap's toolchain step against stand-in tools, scripts/uninstall.sh and the rehearsal scripts against a fake home, and the troubleshooting anchors they link to
 	@scripts/build-progress-test.sh
 	@scripts/bootstrap-test.sh
 	@scripts/uninstall-test.sh
+	@scripts/rehearse-test.sh
 
 check: format-check lint-strings lint-design test-scripts test  ## What CI runs: formatting, the catalogs, the design rules, the script checks, then the suite
 

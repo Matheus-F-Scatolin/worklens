@@ -14,7 +14,7 @@ import WorklensCore
 /// when the root is only `ParsableCommand`.
 struct WorklensCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        commandName: "worklens",
+        commandName: AppIdentity.current.commandName,
         abstract: "Worklens: see where your day actually went.",
         // The prose paragraphs are single lines because the help screen rewraps them; the exit
         // table is the one place newlines are meant, and its rows are short enough to survive.

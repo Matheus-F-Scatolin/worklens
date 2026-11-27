@@ -20,15 +20,22 @@
 # and waits for an answer. Declining one is a supported outcome, not an error; the script says
 # what you lose and carries on.
 #
-# usage: scripts/setup.sh [--dry-run] [--yes] [--no-link-checkout]
+# usage: scripts/setup.sh [--dry-run] [--yes] [--no-link-checkout] [--rehearsal]
 #   --dry-run            print every command this would run and change nothing at all
 #   --yes                answer yes to every prompt except "Point the installed app at this
 #                        checkout?", which stays at its N default (see step 5)
 #   --no-link-checkout   leave that one question at N even on an interactive run
+#   --rehearsal          the install rehearsal (docs/rehearsal.md): the same steps for
+#                        "Worklens Rehearsal", a second app with its own bundle identifier,
+#                        folder, keychain item and command, built from this checkout. The
+#                        download and the command line tools install are simulated; it refuses
+#                        to go on if any step would touch the real Worklens
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 REPO="$PWD"
+# shellcheck source=scripts/app-identity.sh
+source scripts/app-identity.sh
 
 DRY_RUN=0
 ASSUME_YES=0
@@ -38,16 +45,30 @@ ASSUME_YES=0
 # clones into a directory it later pulls into, and a database inside a git checkout is not a
 # thing to arrange behind someone's back. So --yes leaves it at N.
 LINK_CHECKOUT=1
+REHEARSAL=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -n|--dry-run) DRY_RUN=1 ;;
     -y|--yes) ASSUME_YES=1; LINK_CHECKOUT=0 ;;
     --no-link-checkout) LINK_CHECKOUT=0 ;;
-    -h|--help) sed -n '23,27p' "$0"; exit 0 ;;
+    # The rehearsal never points anything at this checkout: that is step 5, and it would write
+    # the real app's .env.
+    --rehearsal) REHEARSAL=1; LINK_CHECKOUT=0 ;;
+    -h|--help) sed -n '23,32p' "$0"; exit 0 ;;
     *) echo "error: unknown argument $1" >&2; exit 2 ;;
   esac
   shift
 done
+
+# Every name below that ties the install to this Mac comes from the identity: the real app's, or
+# the rehearsal's (scripts/app-identity.sh). VARIANT is the flag the helper scripts take.
+VARIANT=()
+if (( REHEARSAL )); then
+  wl_identity rehearsal
+  VARIANT=(--rehearsal)
+else
+  wl_identity main
+fi
 
 BOLD=$'\033[1m'; DIM=$'\033[2m'; PLAIN=$'\033[0m'
 [[ -t 1 ]] || { BOLD=""; DIM=""; PLAIN=""; }
@@ -55,7 +76,8 @@ BOLD=$'\033[1m'; DIM=$'\033[2m'; PLAIN=$'\033[0m'
 step()  { echo; echo "${BOLD}==> $*${PLAIN}"; }
 detail() { echo "${DIM}    $*${PLAIN}"; }
 
-SUPPORT="$HOME/Library/Application Support/Worklens"
+SUPPORT="$WL_SUPPORT"
+wl_guard "$SUPPORT" "$REPO/$WL_BUILD_APP" "$WL_BUNDLE_ID"
 
 # A DATA_DIR value as the app reads it (Config.fileLayer): quotes off, `~` expanded, and a
 # relative path taken from `$2`, the folder of the file it came from (or the working directory,
@@ -86,7 +108,10 @@ env_file_data_dir() {
 # build log uses it. Like the key check below, it greps the file and never sources it.
 data_dir() {
   local dir=""
-  if [[ -n "${DATA_DIR:-}" ]]; then
+  # The rehearsal reads no DATA_DIR from anywhere: its data is its own folder's, always.
+  if (( REHEARSAL )); then
+    dir=""
+  elif [[ -n "${DATA_DIR:-}" ]]; then
     dir="$(resolve_dir "$DATA_DIR" "$PWD")"
   elif [[ -f "$SUPPORT/.env" ]]; then
     dir="$(env_file_data_dir "$SUPPORT/.env")"
@@ -120,8 +145,24 @@ ask() {
   [[ "$reply" == [Yy]* ]]
 }
 
-echo "${BOLD}Worklens setup${PLAIN} — $REPO"
+echo "${BOLD}$WL_APP_NAME setup${PLAIN} — $REPO"
 if (( DRY_RUN )); then echo "${DIM}dry run: nothing will be created, copied, signed or launched${PLAIN}"; fi
+if (( REHEARSAL )); then
+  echo "${DIM}rehearsal: every step a new person sees, for $WL_APP_BUNDLE. The download and the${PLAIN}"
+  echo "${DIM}command line tools install are simulated; everything else is real and touches only${PLAIN}"
+  echo "${DIM}$WL_APP_BUNDLE, $WL_CLI, $WL_BUNDLE_ID and $SUPPORT.${PLAIN}"
+
+  # ---------------------------------------------------------------- 0. the download
+
+  # scripts/bootstrap.sh clones into Application Support/Worklens/src before it runs this script.
+  # The rehearsal builds this checkout instead, so the real app's src is never pulled into.
+  step "Downloading Worklens (simulated: download)"
+  detail "a new person's one-line install clones the repository first; the rehearsal uses this"
+  detail "checkout as it is: $REPO"
+  if [[ -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]]; then
+    detail "it has changes that are not committed, and they are what gets built"
+  fi
+fi
 
 # ------------------------------------------------------------------ 1. the toolchain
 
@@ -133,6 +174,10 @@ if ! xcode-select -p >/dev/null 2>&1; then
   exit 1
 fi
 detail "developer directory: $(xcode-select -p)"
+if (( REHEARSAL )); then
+  detail "Apple's command line tools: already installed (simulated: install). A new Mac gets"
+  detail "Apple's own dialog for them here, about a gigabyte, before anything else runs."
+fi
 
 if ! swift -version >/dev/null 2>&1 </dev/null || ! git --version >/dev/null 2>&1 </dev/null; then
   echo "error: Apple's command line tools are set up, but Swift or git does not run from them, so they look broken." >&2
@@ -166,7 +211,7 @@ step "Configuration"
 # all: that run never points the app at this checkout, the key goes into the welcome window, and
 # a .env here would only tell the person to paste it in the wrong place.
 checkout_env=1
-if (( LINK_CHECKOUT == 0 )) && [[ ! -f "$REPO/.env" ]]; then
+if (( REHEARSAL )) || { (( LINK_CHECKOUT == 0 )) && [[ ! -f "$REPO/.env" ]]; }; then
   checkout_env=0
   detail "no checkout .env — the app writes its own on first launch, and its welcome window"
   detail "asks how Worklens summarizes your screenshots"
@@ -251,6 +296,9 @@ fi
 step "Code-signing certificate"
 if security find-identity -v -p codesigning 2>/dev/null | grep -Fq '"Worklens Dev"'; then
   detail "\"Worklens Dev\" is already installed and trusted"
+  if (( REHEARSAL )); then
+    detail "the rehearsal reuses it: a new Mac creates it here, and macOS asks for your password"
+  fi
 else
   cat <<EOF
     macOS ties Screen Recording and Accessibility to an app's code signature. Without a stable
@@ -292,17 +340,23 @@ else
   fi
 fi
 
-step "Assembling and signing build/Worklens.app"
-run make bundle
-run make sign
+step "Assembling and signing $WL_BUILD_APP"
+if (( REHEARSAL )); then
+  run scripts/bundle.sh ${VARIANT[@]+"${VARIANT[@]}"}
+  run scripts/sign.sh ${VARIANT[@]+"${VARIANT[@]}"}
+else
+  run make bundle
+  run make sign
+fi
 
 # ------------------------------------------------------------------ 5. the shared .env
 
 step "Installing the configuration where a bundled app can find it"
+support_shown="~${SUPPORT#"$HOME"}"
 cat <<EOF
     A bundled app does not inherit a shell's working directory, so it cannot see ./.env. It does
     not need to: with no configuration anywhere it writes its own
-    ~/Library/Application Support/Worklens/.env and keeps its data beside it (#116).
+    $support_shown/.env and keeps its data beside it (#116).
 
     'make install-env' is the other choice — it merges this checkout's .env into that file with
     DATA_DIR rewritten to this checkout's absolute path, which is what you want while working on
@@ -311,7 +365,10 @@ cat <<EOF
     .env of every checkout on this Mac, so it decides where an app launched from Spotlight
     writes.
 EOF
-if (( LINK_CHECKOUT == 0 )); then
+if (( REHEARSAL )); then
+  echo "    Point the installed app at this checkout? [y/N] N"
+  detail "never for the rehearsal: 'make install-env' writes the real app's .env"
+elif (( LINK_CHECKOUT == 0 )); then
   echo "    Point the installed app at this checkout? [y/N] N"
   detail "declined for you — an unattended run keeps the app's own configuration and data in"
   detail "Application Support. Run this script by hand, or 'make install-env', to change that."
@@ -323,31 +380,31 @@ fi
 
 # ------------------------------------------------------------------ 6. the install
 
-step "Installing the app and the worklens command"
+step "Installing the app and the $WL_CLI command"
 cat <<EOF
-    'make install' copies build/Worklens.app to /Applications (or ~/Applications when that is not
-    writable) so Spotlight can find it, and symlinks that copy's binary to /usr/local/bin/worklens
+    'make install' copies $WL_BUILD_APP to /Applications (or ~/Applications when that is not
+    writable) so Spotlight can find it, and symlinks that copy's binary to /usr/local/bin/$WL_CLI
     when that directory already exists and is writable, or ~/.local/bin otherwise.
 
     It does not carry permissions over: a command run from a terminal is attributed to the
-    terminal, so 'worklens capture-once' asks for Screen Recording on its own account.
+    terminal, so '$WL_CLI capture-once' asks for Screen Recording on its own account.
 EOF
 installed=""
 if ask "Install the app now?"; then
   if (( DRY_RUN )); then
-    run scripts/install.sh
+    run scripts/install.sh ${VARIANT[@]+"${VARIANT[@]}"}
   else
-    scripts/install.sh
-    installed="$(scripts/installed-app.sh || true)"
+    scripts/install.sh ${VARIANT[@]+"${VARIANT[@]}"}
+    installed="$(scripts/installed-app.sh ${VARIANT[@]+"${VARIANT[@]}"} || true)"
   fi
 else
-  detail "skipped — the app stays at $REPO/build/Worklens.app"
+  detail "skipped — the app stays at $REPO/$WL_BUILD_APP"
 fi
 
 # ------------------------------------------------------------------ 7. MCP clients
 
 step "Claude Desktop and other MCP clients (optional)"
-mcp_binary="${installed:-$REPO/build/Worklens.app}/Contents/MacOS/Worklens"
+mcp_binary="${installed:-$REPO/$WL_BUILD_APP}/Contents/MacOS/Worklens"
 cat <<EOF
     To ask Claude Desktop about your own day, add this to
     ~/Library/Application Support/Claude/claude_desktop_config.json, keeping any mcpServers you
@@ -355,7 +412,7 @@ cat <<EOF
 
       {
         "mcpServers": {
-          "worklens": { "command": "$mcp_binary", "args": ["mcp"] }
+          "$WL_MCP_NAME": { "command": "$mcp_binary", "args": ["mcp"] }
         }
       }
 
@@ -368,8 +425,16 @@ EOF
 # ------------------------------------------------------------------ 8. does it work
 
 step "Checking the result"
-worklens_bin="${installed:-$REPO/build/Worklens.app}/Contents/MacOS/Worklens"
-if (( DRY_RUN )); then
+worklens_bin="${installed:-$REPO/$WL_BUILD_APP}/Contents/MacOS/Worklens"
+if (( REHEARSAL )); then
+  # From /, with no DATA_DIR or WORKLENS_ENV_FILE inherited, the way the app itself starts: this
+  # checkout's .env is the real app's developer configuration, not the rehearsal's.
+  if (( DRY_RUN )); then
+    run env -u DATA_DIR -u WORKLENS_ENV_FILE "$worklens_bin" config-dump
+  elif [[ -x "$worklens_bin" ]]; then
+    (cd / && env -u DATA_DIR -u WORKLENS_ENV_FILE "$worklens_bin" config-dump)
+  fi
+elif (( DRY_RUN )); then
   run "$worklens_bin" config-dump
 elif [[ -x "$worklens_bin" ]]; then
   # config-dump answers the first question: which configuration file won, and what it resolved to.
@@ -378,14 +443,19 @@ fi
 
 # ------------------------------------------------------------------ 9. run it
 
-step "Opening Worklens"
+step "Opening $WL_APP_NAME"
 cat <<EOF
     The first time Worklens opens, it opens to its welcome window and captures nothing until you
     finish it. On a Mac where Worklens is already set up, it just comes back to the menu bar.
 EOF
 launched=0
-if ask "Open Worklens now?"; then
-  run scripts/launch.sh
+if ask "Open $WL_APP_NAME now?"; then
+  if (( REHEARSAL )); then
+    # launch.sh knows only the real app. The rehearsal starts like a first launch from Finder.
+    run open "${installed:-$REPO/$WL_BUILD_APP}"
+  else
+    run scripts/launch.sh
+  fi
   launched=1
 else
   detail "skipped — 'make run' opens it whenever you are ready"
@@ -397,9 +467,9 @@ fi
 # can take for you, so they are the last thing on screen.
 step "What is left for you"
 if (( launched )); then
-  echo "    Worklens is open. Two steps in its welcome window are yours:"
+  echo "    $WL_APP_NAME is open. Two steps in its welcome window are yours:"
 else
-  echo "    When you open Worklens, two steps in its welcome window are yours:"
+  echo "    When you open $WL_APP_NAME, two steps in its welcome window are yours:"
 fi
 cat <<EOF
 
@@ -418,15 +488,15 @@ EOF
 
 # install.sh says this too, but mid-output, where it scrolls away: on a clean Apple-silicon Mac
 # the command lands in ~/.local/bin, which no shell has on its PATH yet.
-if [[ -n "$installed" ]] && ! command -v worklens >/dev/null 2>&1 && [[ -L "$HOME/.local/bin/worklens" ]]; then
+if [[ -n "$installed" ]] && ! command -v "$WL_CLI" >/dev/null 2>&1 && [[ -L "$HOME/.local/bin/$WL_CLI" ]]; then
+  echo
+  echo "    For the $WL_CLI command in a terminal, put ~/.local/bin on your PATH and open a new shell:"
   cat <<'EOF'
-
-    For the worklens command in a terminal, put ~/.local/bin on your PATH and open a new shell:
       echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 EOF
 fi
 
 echo
-echo "${BOLD}Done.${PLAIN} 'worklens --help' lists the commands; the lens ring in the menu bar is the app."
+echo "${BOLD}Done.${PLAIN} '$WL_CLI --help' lists the commands; the lens ring in the menu bar is the app."
 if (( DRY_RUN )); then echo "${DIM}(dry run — nothing above actually happened)${PLAIN}"; fi
 exit 0
