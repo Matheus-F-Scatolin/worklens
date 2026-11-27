@@ -72,6 +72,8 @@ public struct LastFrame: Equatable, Sendable {
             case .idle: return .idle
             case .locked, .asleep: return .locked
             case .budget: return .overBudget
+            // Never summarized: nothing could take it before it went stale (Part 4).
+            case .unavailable: return .failed
             case .noText: return .noText
             default: return .unchanged
             }

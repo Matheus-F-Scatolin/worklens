@@ -21,6 +21,7 @@ public final class ClaudeDescriber: VisionDescriber {
     private let model: String
     private let workspace: SubscriptionWorkspace
     private let timeout: TimeInterval
+    private let headroomPercent: Int
     private let now: @Sendable () -> Date
     private let state = LockedBox(State())
 
@@ -28,6 +29,7 @@ public final class ClaudeDescriber: VisionDescriber {
         var status: SubscriptionStatus?
         var statusAt: Date?
         var rateLimits: ClaudeRateLimits?
+        var rateLimitsAt: Date?
     }
 
     /// - Parameter model: an alias (`sonnet`, `haiku`), never a full id: the CLI resolves it to
@@ -37,16 +39,27 @@ public final class ClaudeDescriber: VisionDescriber {
         model: String,
         workspace: SubscriptionWorkspace,
         timeout: TimeInterval = SubscriptionCLIRunner.defaultTimeout,
+        headroomPercent: Int = PlanHeadroom.defaultPercent,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.cli = cli
         self.model = model
         self.workspace = workspace
         self.timeout = timeout
+        self.headroomPercent = headroomPercent
         self.now = now
     }
 
     public var provider: String { ClaudeDescriber.provider }
+
+    /// A plan call is never billed per token, so the daily budget does not hold it.
+    public var costsMoney: Bool { false }
+
+    /// Until when the plan is left to the person, from the windows the last call reported.
+    public func headroomUntil(now: Date) -> Date? {
+        let (limits, at) = state.withLock { ($0.rateLimits, $0.rateLimitsAt) }
+        return PlanHeadroom.until(limits, observedAt: at, percent: headroomPercent, now: now)
+    }
 
     /// The plan windows the last call reported, for leaving room in the plan (Part 4).
     public var lastRateLimits: ClaudeRateLimits? { state.withLock { $0.rateLimits } }
@@ -168,7 +181,11 @@ public final class ClaudeDescriber: VisionDescriber {
 
         let parsed = Self.parse(output, requestedModel: model)
         if let limits = parsed.rateLimits {
-            state.withLock { $0.rateLimits = limits }
+            let instant = now()
+            state.withLock {
+                $0.rateLimits = limits
+                $0.rateLimitsAt = instant
+            }
         }
         switch parsed.outcome {
         case let .answer(json, usage, answeringModel):

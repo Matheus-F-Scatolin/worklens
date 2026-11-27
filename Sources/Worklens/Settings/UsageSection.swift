@@ -34,6 +34,7 @@ struct UsageSection: View {
                     }
                 }
             }
+            summariesToday
             SpendChart(model: model)
             storage
         }
@@ -123,6 +124,24 @@ struct UsageSection: View {
         guard abs(value - model.config.dailyBudgetUSD) > 0.000_1 else { return }
         if model.saveSetting("DAILY_BUDGET_USD", String(format: "%.2f", value), as: String(localized: "Daily budget", comment: "Setting")) {
             budgetText = Self.amount(value)
+        }
+    }
+
+    // MARK: Summaries per provider
+
+    /// Calls and screenshots for each way of summarizing; dollars only where a call costs money.
+    @ViewBuilder private var summariesToday: some View {
+        let rows = UsageSummary.providerRows(
+            order: SummaryProviders.effective(model.config), usage: model.summaryUsageToday
+        )
+        if !rows.isEmpty {
+            SettingsGroup(String(localized: "Summaries today", comment: "Settings group")) {
+                ForEach(rows) { row in
+                    SettingsRow(row.name) {
+                        SettingsValueText(row.detail)
+                    }
+                }
+            }
         }
     }
 

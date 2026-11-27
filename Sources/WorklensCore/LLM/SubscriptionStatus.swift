@@ -12,6 +12,9 @@ public enum SubscriptionError: Error, Equatable, Sendable, CustomStringConvertib
     case notSubscription(SubscriptionTool)
     /// The plan's usage limit is reached. `resetsAt` when the command said when it lifts.
     case usageLimit(SubscriptionTool, resetsAt: Date?)
+    /// Not a failure of the command: a plan window is fuller than `SUBSCRIPTION_HEADROOM_PERCENT`,
+    /// so Worklens leaves the rest of it to the person until `resetsAt` (`PlanHeadroom`).
+    case headroom(SubscriptionTool, resetsAt: Date)
     /// No answer twice in a row within the timeout.
     case timedOut(SubscriptionTool)
     /// The command could not reach its service.
@@ -22,7 +25,7 @@ public enum SubscriptionError: Error, Equatable, Sendable, CustomStringConvertib
     public var tool: SubscriptionTool {
         switch self {
         case let .notInstalled(tool), let .signedOut(tool), let .notSubscription(tool),
-             let .usageLimit(tool, _), let .timedOut(tool), let .unreachable(tool),
+             let .usageLimit(tool, _), let .headroom(tool, _), let .timedOut(tool), let .unreachable(tool),
              let .failed(tool, _):
             return tool
         }
@@ -37,6 +40,8 @@ public enum SubscriptionError: Error, Equatable, Sendable, CustomStringConvertib
         case let .usageLimit(_, resetsAt):
             guard let resetsAt else { return "\(name) reached its plan's usage limit" }
             return "\(name) reached its plan's usage limit until \(ISO8601DateFormatter().string(from: resetsAt))"
+        case let .headroom(_, resetsAt):
+            return "\(name) is left for your own work until \(ISO8601DateFormatter().string(from: resetsAt))"
         case .timedOut: return "\(name) did not answer in time, twice"
         case .unreachable: return "\(name) could not reach its service"
         case let .failed(_, status): return "\(name) stopped with exit status \(status)"

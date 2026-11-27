@@ -7,6 +7,11 @@ import Foundation
 /// hour rather than one per screenshot: until the plan's reset time when the command named one,
 /// otherwise `skipFor`.
 ///
+/// Two more reasons to pass a link over without calling it (Part 4): a Claude plan fuller than
+/// `SUBSCRIPTION_HEADROOM_PERCENT` is left to the person until its window resets, and a link that
+/// costs money (Gemini) is not called once `DAILY_BUDGET_USD` is spent. A plan link is never held
+/// by the budget.
+///
 /// A chain of one is never built (`SummaryProviders.describer` returns the link itself), so an
 /// install with only Gemini set up behaves exactly as before.
 public final class DescriberChain: VisionDescriber {
@@ -35,19 +40,36 @@ public final class DescriberChain: VisionDescriber {
         }
     }
 
+    /// Every link that could have answered was passed over because the daily budget is spent.
+    /// The worker leaves the screenshots waiting, exactly as when the budget stops a Gemini-only
+    /// install before the call.
+    public struct BudgetSpent: Error, CustomStringConvertible {
+        public init() {}
+        public var description: String { "the daily budget is spent" }
+    }
+
     public static let skipFor: TimeInterval = 15 * 60
     /// A reset time further out than this is not believed.
     static let longestSkip: TimeInterval = 7 * 24 * 60 * 60
 
     public let links: [Link]
+    private let budget: (any CostGate)?
     private let now: @Sendable () -> Date
     private let skips = LockedBox([String: (until: Date, error: Error)]())
 
-    public init(_ links: [Link], now: @escaping @Sendable () -> Date = { Date() }) {
+    /// - Parameter budget: asked before a link that costs money; nil calls every link.
+    public init(
+        _ links: [Link], budget: (any CostGate)? = nil, now: @escaping @Sendable () -> Date = { Date() }
+    ) {
         precondition(!links.isEmpty, "a describer chain needs at least one link")
         self.links = links
+        self.budget = budget
         self.now = now
     }
+
+    /// False once any link is a plan: the chain can then summarize with the budget spent, and
+    /// asks the budget itself before each link that costs money.
+    public var costsMoney: Bool { links.allSatisfy { $0.describer.costsMoney } }
 
     /// The first link's: what a row is labelled with when nothing more specific is known.
     public var provider: String { links[0].describer.provider }
@@ -55,11 +77,26 @@ public final class DescriberChain: VisionDescriber {
     public func describe(_ request: DescribeRequest) async throws -> DescribeResponse {
         var first: Failed?
         var aboutTheFrame: Failed?
+        var overBudget: Failed?
         for link in links {
             let name = link.describer.provider
             let instant = now()
             if let skip = skips.withLock({ $0[name] }), skip.until > instant {
                 if first == nil { first = Failed(provider: name, model: link.model, underlying: skip.error) }
+                continue
+            }
+            if let until = link.describer.headroomUntil(now: instant),
+               let tool = SummaryProvider(rawValue: name)?.tool {
+                let error = SubscriptionError.headroom(tool, resetsAt: until)
+                skips.withLock { $0[name] = (until, error) }
+                Log.describe.info("\(name) left for your own work until \(Self.stamp(until))")
+                if first == nil { first = Failed(provider: name, model: link.model, underlying: error) }
+                continue
+            }
+            if link.describer.costsMoney, let budget, !(await budget.allows(.describe)) {
+                if overBudget == nil {
+                    overBudget = Failed(provider: name, model: link.model, underlying: BudgetSpent())
+                }
                 continue
             }
             do {
@@ -82,7 +119,9 @@ public final class DescriberChain: VisionDescriber {
                 }
             }
         }
-        if let failed = aboutTheFrame ?? first { throw failed }
+        // A spent budget outranks a sign-in or a plan limit: the screenshots wait on hold, the way
+        // they do on a Gemini-only install, and the notices still name the plan.
+        if let failed = aboutTheFrame ?? overBudget ?? first { throw failed }
         throw LLMError.missingAPIKey("SUMMARY_PROVIDERS")
     }
 
@@ -91,7 +130,8 @@ public final class DescriberChain: VisionDescriber {
     static func skipUntil(_ error: Error, provider: String, now: Date) -> Date? {
         if let subscription = error as? SubscriptionError {
             switch subscription {
-            case let .usageLimit(_, resetsAt?) where resetsAt > now:
+            case let .usageLimit(_, resetsAt?) where resetsAt > now,
+                 let .headroom(_, resetsAt) where resetsAt > now:
                 return min(resetsAt, now.addingTimeInterval(longestSkip))
             case .failed:
                 return nil
@@ -123,8 +163,22 @@ public final class DescriberChain: VisionDescriber {
     /// Forgets why a link was skipped, so the next screenshot tries it first again. Called when
     /// a status check finds the command signed in with a plan, so signing back in moves the
     /// summaries back without waiting out the quarter hour.
+    ///
+    /// Room left in a plan is not about the sign-in, so it is kept until its window resets.
     public func forgetSkip(_ provider: SummaryProvider) {
-        skips.withLock { $0[provider.rawValue] = nil }
+        let instant = now()
+        skips.withLock { skips in
+            if let entry = skips[provider.rawValue], case .headroom? = entry.error as? SubscriptionError,
+               entry.until > instant {
+                return
+            }
+            skips[provider.rawValue] = nil
+        }
+    }
+
+    /// Whether an error is the chain saying the budget is spent.
+    public static func isBudgetSpent(_ error: Error) -> Bool {
+        (error as? Failed)?.underlying is BudgetSpent
     }
 
     /// The link a chain's error came from, for the ledger and the menu. Nil for any other error.

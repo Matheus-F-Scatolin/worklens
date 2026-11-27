@@ -90,6 +90,9 @@ public enum SetupIssue: String, Codable, Sendable, CaseIterable, Equatable {
     case claudeSignedOut
     /// The same, for Codex and the ChatGPT plan.
     case codexSignedOut
+    /// The Claude sign-in ends within three days (`claude auth status` says when). Codex says
+    /// nothing about when its sign-in ends, so there is no ChatGPT twin.
+    case claudeSignInEnding
     /// A plan hit its usage limit: the next way in the order summarizes until it resets.
     case subscriptionLimit
     /// More than `SummaryNotices.backlogThreshold` screenshots have waited longer than
@@ -150,6 +153,10 @@ public enum SetupIssue: String, Codable, Sendable, CaseIterable, Equatable {
             return SummaryNotices.signedOutMessage(.claude, summarizing: nil)
         case .codexSignedOut:
             return SummaryNotices.signedOutMessage(.codex, summarizing: nil)
+        case .claudeSignInEnding:
+            return L10n.string(
+                "Your Claude sign-in ends soon: run claude auth login before then to keep your screenshots summarized."
+            )
         case .subscriptionLimit:
             return L10n.string("Your plan hit its limit: summaries wait until it resets.")
         case .summariesWaiting:
@@ -166,7 +173,7 @@ public enum SetupIssue: String, Codable, Sendable, CaseIterable, Equatable {
         case .keyRejected, .noSummarizer, .noAnthropicKey: return .openAccountSettings
         // Connections shows each way of summarizing with its state, the sign-in command and the
         // order.
-        case .claudeSignedOut, .codexSignedOut, .subscriptionLimit, .summariesWaiting: return .openAccountSettings
+        case .claudeSignedOut, .codexSignedOut, .claudeSignInEnding, .subscriptionLimit, .summariesWaiting: return .openAccountSettings
         case .dataDirNotLocal: return .openEnvFile
         case .googleReconnect: return .reconnectGoogle
         // #248: the button opens the Claude pane, whose own Reconnect repoints the entry with
@@ -189,7 +196,7 @@ public enum SetupIssue: String, Codable, Sendable, CaseIterable, Equatable {
         case .keyRejected, .noSummarizer, .dataDirNotLocal: return true
         // Another way in the order may be summarizing, and the health row already says when
         // nothing is; a plan's limit is a wait, not a fault.
-        case .claudeSignedOut, .codexSignedOut, .subscriptionLimit, .summariesWaiting: return false
+        case .claudeSignedOut, .codexSignedOut, .claudeSignInEnding, .subscriptionLimit, .summariesWaiting: return false
         case .noAnthropicKey: return false  // legacy: never raised since 2026-10-05
         case .screenRecordingDenied: return false  // the scheduler's own state already says so
         // Nothing has stopped: the folder may simply have been copied here, or the Mac renamed.
@@ -290,6 +297,7 @@ extension SetupIssue {
         case .mcpDisconnected: return .mcpToolsMissing
         case .noSummarizer: return .nothingSummarizes
         case .claudeSignedOut, .codexSignedOut: return .signInStopped
+        case .claudeSignInEnding: return .signInEnding
         case .subscriptionLimit: return .planLimit
         case .summariesWaiting: return .screenshotsWaiting
         case .dataDirAnotherMac, .keyRejected, .noAnthropicKey, .googleReconnect: return nil

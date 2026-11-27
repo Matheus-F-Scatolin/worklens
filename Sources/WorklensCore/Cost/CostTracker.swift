@@ -16,6 +16,10 @@ public actor CostTracker: CostGate {
     /// A pending frame older than this at the day rollover is never described: it would spend
     /// today's budget on yesterday's screen.
     public static let stalePendingAge: TimeInterval = 24 * 3600
+    /// The same when no summarizer was available rather than the budget spent (Part 4): a
+    /// Claude sign-in that ran out over a weekend should not cost the weekend's screenshots, and
+    /// a plan costs nothing to catch up with.
+    public static let staleUnavailableAge: TimeInterval = 72 * 3600
     /// `app_state` key holding the last local day the rollover ran for.
     public static let lastRolloverKey = "cost_last_rollover_day"
     /// #137: `app_state` keys holding a one-day budget raise, one per local day.
@@ -41,6 +45,9 @@ public actor CostTracker: CostGate {
     /// Per-purpose rolling averages, computed at most once per `refreshInterval`.
     private var estimates: [LLMPurpose: Double] = [:]
     private var estimatesAt: Date = .distantPast
+    /// Why waiting screenshots are waiting, as the app last said (`StaleCause`). `budget` until
+    /// told otherwise, which is what a Gemini-only install always is.
+    private var staleReason: SkipReason = .budget
 
     public init(
         db: Database,
@@ -213,9 +220,15 @@ public actor CostTracker: CostGate {
         clearStaleOverrides(keeping: day)
         let marked = (try? markStalePending()) ?? 0
         if marked > 0 {
-            Log.describe.info("\(marked) frames from before yesterday retired as skipped/budget")
+            Log.describe.info("\(marked) stale frames retired as skipped/\(staleReason.rawValue)")
         }
         return marked
+    }
+
+    /// Tells the rollover why screenshots are waiting: `budget` (the default), or `unavailable`
+    /// when every summarizer is out of reach (`StaleCause.reason`).
+    public func setStaleReason(_ reason: SkipReason) {
+        staleReason = reason
     }
 
     /// Marks every still-pending frame older than 24 hours `skipped` / `budget`.
@@ -223,11 +236,14 @@ public actor CostTracker: CostGate {
     /// Not a cost calculation but a cost decision: a backlog that survived a day did so because
     /// the budget stopped it, and describing it now would spend today's money on a screen nobody
     /// remembers. The rows stay, so the timeline still shows the time.
+    ///
+    /// Part 4: when no summarizer was available instead, the frames are kept three days and
+    /// retired as `unavailable`, which `CaptureStore.requeueUnavailableSkipped` undoes once one
+    /// is back.
     @discardableResult
     public func markStalePending() throws -> Int {
-        try captures.markStalePendingOverBudget(
-            before: now().addingTimeInterval(-CostTracker.stalePendingAge)
-        )
+        let age = staleReason == .unavailable ? CostTracker.staleUnavailableAge : CostTracker.stalePendingAge
+        return try captures.markStalePending(before: now().addingTimeInterval(-age), reason: staleReason)
     }
 
     // MARK: Cache

@@ -31,20 +31,24 @@ struct DescribeStack {
             )
         }
         db = try Database(dataDir: config.dataDir)
+        // The real budget gate, exactly as the app wires it: `describe-pending` is the same
+        // spend on the same ledger, and a CLI that ignored DAILY_BUDGET_USD would be a way around
+        // it rather than a way to run the stage.
+        let cost = CostTracker(db: db, config: config)
+        // Rebuilt with the budget now that the ledger is open: a plan in the order summarizes
+        // with the budget spent, Gemini does not (`SummaryBudgetGate`).
+        let budgeted = fake ? built : SummaryProviders.describer(config: config, only: provider, budget: cost)
         taxonomy = try TaxonomyStore(dataDir: config.dataDir)
         let timeline = TimelineWriter(config: config, db: db, taxonomy: taxonomy)
         self.timeline = timeline
-        let describer: any VisionDescriber = built
+        let describer: any VisionDescriber = budgeted
             ?? GeminiClient(apiKey: config.geminiAPIKey ?? "", model: config.describeModel)
         worker = DescribeWorker(
             config: config,
             db: db,
             taxonomy: taxonomy,
             describer: describer,
-            // The real budget gate, exactly as the app wires it: `describe-pending` is the
-            // same spend on the same ledger, and a CLI that ignored DAILY_BUDGET_USD would be a
-            // way around it rather than a way to run the stage.
-            cost: CostTracker(db: db, config: config),
+            cost: SummaryBudgetGate(cost, describer: describer),
             // Each described frame redraws its day, exactly as the app will.
             onDescribed: { day in await timeline.nudge(day: day) }
         )

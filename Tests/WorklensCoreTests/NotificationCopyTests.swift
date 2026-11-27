@@ -9,6 +9,9 @@ import Testing
 @Suite("Notification copy (#149)")
 struct NotificationCopyTests {
     /// Every title and body the helper can produce, for the rules that hold across all of them.
+    /// A Tuesday morning, so three days on is a weekday name and one day on is "tomorrow".
+    private var copyNow: Date { Date(timeIntervalSince1970: 1_795_000_000) }
+
     private var everyTitle: [String] {
         [
             NotificationCopy.budgetReachedTitle,
@@ -21,6 +24,10 @@ struct NotificationCopyTests {
             NotificationCopy.integrationAttentionTitle("Granola"),
             NotificationCopy.googleReconnectTitle,
             NotificationCopy.permissionRestoredTitle,
+            NotificationCopy.signInEndingTitle(.claude),
+            NotificationCopy.signInEndedTitle(.claude),
+            NotificationCopy.signInEndedTitle(.codex),
+            NotificationCopy.screenshotsWaitingTitle,
         ]
     }
 
@@ -39,6 +46,13 @@ struct NotificationCopyTests {
             NotificationCopy.googleReconnectBody(SetupIssue.googleReconnect.message),
             NotificationCopy.googleReconnectBody(nil),
             NotificationCopy.permissionRestoredBody,
+            NotificationCopy.signInEndingBody(.claude, expiresAt: copyNow.addingTimeInterval(3 * 86_400), now: copyNow),
+            NotificationCopy.signInEndingBody(.claude, expiresAt: copyNow.addingTimeInterval(86_400), now: copyNow),
+            NotificationCopy.signInEndingBody(.claude, expiresAt: copyNow.addingTimeInterval(3600), now: copyNow),
+            NotificationCopy.signInEndedBody(.claude, summarizing: .codex),
+            NotificationCopy.signInEndedBody(.claude, summarizing: nil),
+            NotificationCopy.signInEndedBody(.codex, summarizing: .gemini),
+            NotificationCopy.screenshotsWaitingBody(120),
         ]
     }
 

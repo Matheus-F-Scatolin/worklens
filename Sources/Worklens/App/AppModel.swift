@@ -29,6 +29,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var notifications: UNAuthorizationStatus = .notDetermined
     /// Last 30 days of spend, for Settings → Models & cost. Refreshed when Settings opens.
     @Published private(set) var spendHistory: [DailySpend] = []
+    /// Today's summaries per summarizer, for Settings → Usage (Part 4: calls and screenshots for
+    /// every one, dollars only for Gemini).
+    @Published private(set) var summaryUsageToday: [String: ProviderUsage] = [:]
     /// What `DATA_DIR/screenshots` weighs right now, for Settings → Models & cost. Measured at
     /// launch and after every sweep, not on every render: it is a directory walk.
     @Published private(set) var screenshotBytes: Int64 = 0
@@ -130,6 +133,10 @@ final class AppModel: ObservableObject {
     /// minutes rather than on every refresh.
     var subscriptionStatusCheckedAt: Date?
     var subscriptionStatusTask: Task<Void, Never>?
+    /// Whether anything in the order could summarize at the last notice refresh, so the screenshots
+    /// set aside as `unavailable` go back in the queue the moment one can again. Nil until the
+    /// first refresh.
+    var summaryAvailable: Bool?
     /// When each provider last wrote a summary, keyed by `SummaryProvider.rawValue`.
     @Published var lastSummaryByProvider: [String: Date] = [:]
     private(set) var timeline: TimelineWriter?
@@ -491,6 +498,11 @@ final class AppModel: ObservableObject {
             // #17: one tracker, shared by everything that can spend. Built before the services
             // so each of them is handed the same gate rather than its own.
             let cost = CostTracker(db: db, config: config)
+            // SUMMARY_PROVIDERS, built before the scheduler so both see the same budget: with a
+            // Claude or ChatGPT plan in the order, a spent budget stops only Gemini's calls
+            // (`SummaryBudgetGate`), and the chain asks `cost` before each one.
+            let summarizer = SummaryProviders.describer(config: config, budget: cost)
+            let summaryGate = SummaryBudgetGate(cost, describer: summarizer)
 
             // Held rather than built inline: the context sync scheduler feeds it the meetings
             // it just synced, which is what makes capture slow down during a scheduled call.
@@ -512,7 +524,7 @@ final class AppModel: ObservableObject {
                 focusChanges: focusChanges,
                 meeting: meeting,
                 system: system,
-                costGate: cost,
+                costGate: summaryGate,
                 // #53. Handed in unconditionally: the snapshotter itself answers nil while
                 // Accessibility is not granted, so the tick is unchanged until the user grants it.
                 snapshotter: AccessibilitySnapshotter()
@@ -595,7 +607,7 @@ final class AppModel: ObservableObject {
             state.describeHealth = .ok
             // SUMMARY_PROVIDERS: Claude, Codex and Gemini in the person's order, or Gemini alone
             // when the key is the only thing set up, exactly as before.
-            if let describer = SummaryProviders.describer(config: config) {
+            if let describer = summarizer {
                 clear(.noSummarizer)
                 summaryChain = describer as? DescriberChain
                 let requeued = (try? DescribeQueries(db).requeueRejectedFailures(
@@ -610,7 +622,7 @@ final class AppModel: ObservableObject {
                     db: db,
                     taxonomy: taxonomy,
                     describer: describer,
-                    cost: cost,
+                    cost: summaryGate,
                     onDescribed: { [weak self] day in
                         await timeline.nudge(day: day)
                         // #350: the first real summary hands the sample week over.
@@ -854,6 +866,9 @@ final class AppModel: ObservableObject {
         spendHistory = (try? await cost?.summary(days: 30))
             ?? (try? LLMCallStore(db).summary(days: 30))
             ?? []
+        if let today = DayBoundaries.range(day: DayBoundaries.dayString(Date())) {
+            summaryUsageToday = (try? LLMCallStore(db).summaryUsage(from: today.start, to: today.end)) ?? [:]
+        }
     }
 
     /// What `DATA_DIR/screenshots` weighs. A directory walk, so it is called at launch, after a

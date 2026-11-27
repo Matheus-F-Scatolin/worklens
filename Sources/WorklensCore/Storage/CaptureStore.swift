@@ -257,14 +257,39 @@ public struct CaptureStore: Sendable {
     /// because the budget stopped it, and yesterday's screen is not worth today's money.
     @discardableResult
     public func markStalePendingOverBudget(before cutoff: Date) throws -> Int {
+        try markStalePending(before: cutoff, reason: .budget)
+    }
+
+    /// The same retirement with the reason it happened: `budget`, or `unavailable` when no
+    /// summarizer could take the frames (Part 4).
+    @discardableResult
+    public func markStalePending(before cutoff: Date, reason: SkipReason) throws -> Int {
         try db.writer.write { db in
             try db.execute(sql: """
                 UPDATE captures
                 SET describe_status = ?, skip_reason = ?
                 WHERE describe_status = ? AND captured_at < ?
                 """, arguments: [
-                    DescribeStatus.skipped.rawValue, SkipReason.budget.rawValue,
+                    DescribeStatus.skipped.rawValue, reason.rawValue,
                     DescribeStatus.pending.rawValue, cutoff,
+                ])
+            return db.changesCount
+        }
+    }
+
+    /// Puts every frame retired as `unavailable` back in the describe queue, and reports how
+    /// many: a summarizer is available again (a sign-in came back, a plan window reset). Only rows
+    /// whose JPEG is still on disk, as for `requeueBudgetSkipped`.
+    @discardableResult
+    public func requeueUnavailableSkipped() throws -> Int {
+        try db.writer.write { db in
+            try db.execute(sql: """
+                UPDATE captures
+                SET describe_status = ?, skip_reason = NULL
+                WHERE describe_status = ? AND skip_reason = ? AND image_path IS NOT NULL
+                """, arguments: [
+                    DescribeStatus.pending.rawValue,
+                    DescribeStatus.skipped.rawValue, SkipReason.unavailable.rawValue,
                 ])
             return db.changesCount
         }

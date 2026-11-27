@@ -1039,6 +1039,13 @@ public actor DescribeWorker {
     /// attempt, so each is sent again on its own (`BatchPlanner`). An outage or a refusal holds the
     /// queue and spends nothing, exactly as for one screenshot.
     private func recordFailure(_ batch: [Capture], error: Error, describeError: String?) async throws -> [Outcome] {
+        // Every link that could answer costs money and the budget is spent (Part 4): no call
+        // went out, nothing is recorded, and the screenshots wait on hold, as they do when the
+        // budget stops a Gemini-only install before the call.
+        if describeError == nil, DescriberChain.isBudgetSpent(error) {
+            Log.describe.debug("daily budget reached for the summarizers that cost money; leaving frames pending")
+            return batch.map { _ in .overBudget }
+        }
         let llmError = error as? LLMError
         let message = describeError ?? llmError?.description ?? "\(error)"
         // The class of the failure, for the log and the menu. `message` keeps the provider's own

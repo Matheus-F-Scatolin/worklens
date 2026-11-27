@@ -80,4 +80,40 @@ public enum UsageSummary {
         formatter.setLocalizedDateFormatFromTemplate("EEEdMMM")
         return formatter.string(from: date)
     }
+
+    // MARK: Per provider
+
+    /// One summarizer's line under "Summaries today": `Claude` and `48 calls · 192 screenshots`,
+    /// with dollars only for a summarizer that costs money, since a plan call is always $0.
+    public struct ProviderRow: Sendable, Equatable, Identifiable {
+        /// The ledger's `provider`.
+        public let provider: String
+        public let name: String
+        public let detail: String
+        public var id: String { provider }
+    }
+
+    /// One row per summarizer in `order`, then any other that summarized today (one taken out of
+    /// the order since), in the ledger's order.
+    public static func providerRows(
+        order: [SummaryProvider], usage: [String: ProviderUsage], locale: Locale = .autoupdatingCurrent
+    ) -> [ProviderRow] {
+        let known = order.map(\.rawValue)
+        let extra = usage.filter { !known.contains($0.key) && $0.value.calls > 0 }.keys.sorted()
+        return (known + extra).map { key in
+            let provider = SummaryProvider(rawValue: key)
+            let name = provider.map(SummaryConnection.name) ?? DescribeHealth.providerName(key)
+            let paid = provider?.tool == nil
+            let line = usage[key] ?? ProviderUsage()
+            guard line.calls > 0 else {
+                return ProviderRow(provider: key, name: name, detail: L10n.string("Nothing summarized today"))
+            }
+            var parts = [
+                L10n.plural(count: line.calls, one: "%lld call", other: "%lld calls"),
+                L10n.plural(count: line.screenshots, one: "%lld screenshot", other: "%lld screenshots"),
+            ]
+            if paid { parts.append(Format.money(line.costUSD, locale: locale)) }
+            return ProviderRow(provider: key, name: name, detail: parts.joined(separator: " · "))
+        }
+    }
 }

@@ -769,6 +769,42 @@ frame's description carries an even share of the call's tokens and cost; the cal
 `llm_calls` row whose `frames` says how many screenshots it covered. `describe-pending` flushes,
 and its `--limit` counts calls in a batch mode.
 
+**`SUBSCRIPTION_HEADROOM_PERCENT` (2026-11-27).** Default 80, 10 to 100; Settings → Advanced →
+Summaries. `PlanHeadroom.until` (pure, `LLM/PlanHeadroom.swift`) reads the `unifiedWindows` the
+last `claude -p` call reported (`ClaudeDescriber.headroomUntil(now:)`): once any window is at the
+share or above it, the plan is left alone until that window's `resetsAt` (a quarter hour when it
+named none; capped at `DescriberChain.longestSkip`). The chain records it as a skip with
+`SubscriptionError.headroom`, which `forgetSkip` keeps, and the next link answers. 100 never
+holds back. Codex windows are not read (see `docs/decisions.md`), so `CodexDescriber` uses the
+protocol default, nil.
+
+**Budget only gates what costs money (2026-11-27).** `VisionDescriber.costsMoney` (default true;
+false for `ClaudeDescriber` and `CodexDescriber`; a `DescriberChain` is free once any link is).
+The chain takes the real `CostTracker` as `budget` and skips a paying link while it disallows
+`.describe`; when only such a link could have answered it throws `DescriberChain.BudgetSpent`,
+which `DescribeWorker` turns into `.overBudget` for the batch, with no ledger row and no attempt
+spent. `SummaryBudgetGate` wraps the tracker for the scheduler and the worker, so a frame is never
+budget-skipped at capture while a plan is in the order. Plan rows are written at `cost_usd = 0`
+with their tokens; `averageCost` leaves them out, and `LLMCallStore.summaryUsage` gives Usage's
+per-provider calls and screenshots.
+
+**Screenshots nothing could summarize (2026-11-27).** `SkipReason.unavailable`. At the day's
+rollover `CostTracker.markStalePending` retires frames still pending after 24 h as `budget`, or
+after 72 h as `unavailable` when `SummaryAlerts.staleReason` (set by the app on every notice
+refresh through `setStaleReason`) says no way in an order with a plan could summarize.
+`CaptureStore.requeueUnavailableSkipped` puts the ones whose `image_path` is still set back to
+pending the moment something can summarize again (`AppModel.settleUnavailable`).
+
+**Plan notifications (2026-11-27).** `SummaryAlerts.due` (pure) decides which banners are owed
+and keeps its memory as JSON in `app_state` under `summary_alerts`: the Claude sign-in ending
+in three days and in one (keyed on `loginExpiresAt`, so a new sign-in starts over), a sign-in
+that ran out (once per occurrence, re-armed by a status check that finds it working), and the
+past-due backlog reaching `SummaryNotices.backlogThreshold` (re-armed below it). The app posts
+them through `postBanner(…, mirrorAsNotice: false, moment: .other)`, so only an install that
+already allowed notifications sees a banner; every one is also a `SetupIssue` notice
+(`claudeSignInEnding` is new). `claude auth status` and `codex login status` are read at launch
+and every six hours while a plan is in the order, and every five minutes while one is failing.
+
 **Config keys added in M5:** `CONTEXT_SYNC_MINUTES` (default 15) — how often the context sources
 are pulled. (`GRANOLA_MODE` was removed in #87 along with the local-cache source it selected.)
 Since #135 it is a control rather than a line of text (Settings → Advanced → "Sync sources every" since #286), and the two

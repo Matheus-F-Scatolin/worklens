@@ -124,6 +124,8 @@ public enum DescribeHealth: Sendable, Equatable {
             case signedOut
             case notSubscription
             case usageLimit(resetsAt: Date?)
+            /// `SUBSCRIPTION_HEADROOM_PERCENT`: the plan is being left to you until then.
+            case headroom(resetsAt: Date)
             case timedOut
         }
 
@@ -178,6 +180,11 @@ public enum DescribeHealth: Sendable, Equatable {
             return Failure(
                 reason: "your \(planName(error.tool)) plan's usage limit is reached", httpStatus: nil,
                 isRefusal: true, isUnreachable: false, kind: .usageLimit(resetsAt: resetsAt)
+            )
+        case let .headroom(_, resetsAt):
+            return Failure(
+                reason: "your \(planName(error.tool)) plan is left for your own work", httpStatus: nil,
+                isRefusal: true, isUnreachable: false, kind: .headroom(resetsAt: resetsAt)
             )
         case .timedOut:
             return Failure(

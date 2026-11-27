@@ -911,6 +911,41 @@ became **Summaries**, with the same three as rows. Both are built from one list
   plan apply and training is your own setting with it (both settings are linked); Google's paid
   Gemini API does not train. The billing caveat sits on the Gemini card only.
 
+## 2026-11-27: Plan limits, the budget and the backlog
+
+- **Headroom, Claude only.** `SUBSCRIPTION_HEADROOM_PERCENT` (default 80) leaves a Claude plan
+  alone once any `unifiedWindows` entry is at that share or above, until its `resetsAt`. "Above"
+  is read as at-or-above; 100 never holds back; a full window with no reset time holds a quarter
+  hour. The skip survives a status check (`forgetSkip`), since being signed in says nothing
+  about the window.
+- **Codex windows are deferred.** Codex reports rate-limit windows only over `codex app-server`,
+  an experimental long-lived JSON-RPC session; `codex exec --json` does not carry them. Adding a
+  second resident process to read a number that could not be verified (the Codex sign-in on the
+  development Mac was stale) was not worth it. A ChatGPT plan is skipped only on a real
+  usage-limit error.
+- **Codex has no sign-in expiry.** `codex login status` prints only the method, and the offline
+  schema's only `expiresAt` is on rate-limit reset credits. So ChatGPT gets only the "ran out"
+  notification, on a call or a status check that says signed out.
+- **The budget gates money, not summaries.** A plan call is a `cost_usd = 0` row with its
+  tokens, which `CostTracker.spendToday` already sums to nothing. The scheduler and the worker
+  see `SummaryBudgetGate`, which allows describing while any plan is in the order, and the chain
+  asks the real tracker before each paying link. This keeps the Gemini-only install exactly as
+  it was, including the capture-time `budget` skip and the budget banner; with a plan in the
+  order that banner does not fire, because nothing is ever stopped as a whole.
+- **72 hours for `unavailable`.** Frames still waiting at the rollover keep the 24-hour `budget`
+  retirement unless every way in an order that has a plan is out of reach, decided at rollover
+  time from the last notice refresh (an approximation: what was true at midnight, not over the
+  whole 72 hours). They then wait 72 hours and are set aside as `unavailable`, and go back to
+  pending when something can summarize again, only while `image_path` is still set; the disk
+  budget and `DELETE_SCREENSHOTS_AFTER_DESCRIBE` are unchanged.
+- **Notifications reuse the notice path.** Each banner is one `SetupIssue` notice too
+  (`claudeSignInEnding` is new; the others existed), posted with `moment: .other` so it never
+  asks macOS for permission itself, and latched in one `app_state` key, `summary_alerts`.
+  "Ran out" re-arms only when a status check finds the command working, so a skip expiring and
+  being recorded again is not a second occurrence. The backlog counts frames older than
+  `pastDueAfter` (an hour, longer than the longest batch window of 30 minutes), so an unsent
+  batch is never counted.
+
 ## Things only the user can do
 
 Settings → Connections checks the keys and the `claude_desktop_config.json` entry, and

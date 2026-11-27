@@ -50,6 +50,21 @@ Nothing raises the budget on its own, and Worklens can only spend against a key 
 yourself. The budget counts Gemini's spend; a Claude or ChatGPT plan is held by its own usage
 limits instead.
 
+### With a Claude or ChatGPT plan
+
+A summary through your plan costs Worklens nothing: it is recorded at $0 with its tokens, never
+counts toward `DAILY_BUDGET_USD`, and never puts the day over budget. The budget stops only
+Gemini: past it, Gemini is passed over and the plan keeps summarizing. With Gemini alone, the
+hard stop above is unchanged.
+
+What a plan spends is its own usage window. Worklens leaves the last part of it for your own work:
+once Claude says a five-hour or weekly window is 80% used (`SUBSCRIPTION_HEADROOM_PERCENT`,
+Settings → Advanced → **Summaries**), it stops summarizing through Claude until that window resets.
+ChatGPT does not report its windows, so it is used until it hits its limit. Settings → Usage →
+**Summaries today** shows the calls and screenshots each way handled today, with dollars only
+for Gemini. Batching (`SUMMARY_BATCH`) is what makes a plan's window last: several screenshots go
+into one call.
+
 ## Reading the spend table
 
 Settings → Usage charts the last 30 days of spend, one bar per day, and **Copy as CSV** copies the
