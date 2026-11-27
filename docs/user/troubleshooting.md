@@ -272,7 +272,8 @@ make update
 
 The path to the source is stamped into the app at build time, so Worklens looks for the folder it
 was built from exactly where it was. Rename, move or delete that folder and the app can no longer
-find it: **Update and restart…** disappears from the menu and it stops checking GitHub at all. The
+find it: **Update and restart…** disappears from the menu, it stops checking GitHub at all, and
+**Check now** in Settings → General says *Worklens can't find the folder it was built from*. The
 one-line install puts the source at `~/Library/Application Support/Worklens/src` for this reason —
 it is a folder nobody has a reason to drag somewhere else.
 

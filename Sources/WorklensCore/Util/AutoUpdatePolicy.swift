@@ -130,6 +130,17 @@ extension AutoUpdatePolicy {
         }
     }
 
+    /// What **Check now** says when there is no checkout to ask (`CheckoutLocator` found none).
+    ///
+    /// A stamped path that no longer holds a checkout means the folder was moved, renamed or
+    /// deleted after the build; that is worth naming, because the fix is a rebuild from wherever
+    /// it went. Before this line existed the check ran `git` in the vanished folder, which could
+    /// not even start, and reported the failure as being offline.
+    public static func noCheckoutLine(stampedPath: String?) -> String {
+        guard stampedPath != nil else { return "This copy of Worklens can't update itself." }
+        return "Worklens can't find the folder it was built from. Run make update from where it is now."
+    }
+
     /// What a new version this copy cannot install by itself reads as, in Settings.
     public static let blockedLine = "A new version is available, but this copy can't install it."
 
