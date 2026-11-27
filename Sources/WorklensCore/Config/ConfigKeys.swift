@@ -68,6 +68,50 @@ private extension Config {
             apply: { c, v, _ in c.reportLanguage = v },
             read: { $0.reportLanguage }
         ),
+        ConfigKey(
+            name: "SUMMARY_PROVIDERS",
+            section: .describe,
+            kind: .list(","),
+            default: "",
+            help: "Which summarizers to use, in the order they are tried: claude, codex, gemini.",
+            docs: """
+                Which summarizers to use, in the order they are tried: any of `claude` (your Claude
+                plan, through the `claude` command), `codex` (your ChatGPT plan, through the `codex`
+                command) and `gemini` (the GEMINI_API_KEY). The first one that answers writes the
+                summary; one that is signed out or at its plan's limit is skipped for a while.
+                Empty means Gemini alone when its key is set, which is how Worklens worked before.
+                Worklens never signs either command in, and never reads their credentials.
+                """,
+            apply: { c, v, _ in c.summaryProviders = try SummaryProviders.parse(v) },
+            read: { $0.summaryProviders.map(\.rawValue).joined(separator: ",") }
+        ),
+        ConfigKey(
+            name: "CLAUDE_SUMMARY_MODEL",
+            section: .describe,
+            kind: .choice(SummaryProviders.claudeModels),
+            default: "sonnet",
+            help: "The Claude model the claude command summarizes with: sonnet or haiku.",
+            docs: """
+                The Claude model the `claude` command summarizes with: `sonnet` or `haiku`. A family
+                name rather than a model id, so a new release is picked up without a change here.
+                """,
+            apply: { c, v, _ in c.claudeSummaryModel = try SummaryProviders.choice("CLAUDE_SUMMARY_MODEL", v, from: SummaryProviders.claudeModels) },
+            read: { $0.claudeSummaryModel }
+        ),
+        ConfigKey(
+            name: "CODEX_SUMMARY_MODEL",
+            section: .describe,
+            kind: .choice(SummaryProviders.codexModels),
+            default: "sol",
+            help: "The model family the codex command summarizes with: sol or luna.",
+            docs: """
+                The model family the `codex` command summarizes with: `sol` or `luna`. Worklens asks
+                the command which models it has (`codex debug models`) and takes the newest
+                `gpt-<version>-<family>` that reads images, once a day.
+                """,
+            apply: { c, v, _ in c.codexSummaryModel = try SummaryProviders.choice("CODEX_SUMMARY_MODEL", v, from: SummaryProviders.codexModels) },
+            read: { $0.codexSummaryModel }
+        ),
     ]
 }
 

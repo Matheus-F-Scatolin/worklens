@@ -127,10 +127,15 @@ struct FakeSelectionTests {
     /// #87 deleted `DESCRIBE_PROVIDER` and `REPORT_PROVIDER` for labelling rather than selecting.
     /// #121 did not bring them back under another name: the fake is chosen at the call site or
     /// not at all, which is what makes an accidental fake run structurally impossible.
+    /// `SUMMARY_PROVIDERS` picks among the real summarizers only: the fake is not a value it
+    /// takes, so it cannot be chosen through it either.
     @Test("no configuration key selects a provider")
-    func noProviderKey() {
-        let selecting = Config.keys.filter { !$0.retired && $0.name.contains("PROVIDER") }
-        #expect(selecting.isEmpty)
+    func noProviderKey() throws {
+        let selecting = Config.keys.filter { !$0.retired && $0.name.contains("PROVIDER") }.map(\.name)
+        #expect(selecting == ["SUMMARY_PROVIDERS"])
+        #expect(throws: ConfigError.self) {
+            _ = try Config.load(layers: [["SUMMARY_PROVIDERS": "fake"]], cwd: URL(fileURLWithPath: "/tmp"))
+        }
         let retired = Config.keys.filter { $0.retired }.map(\.name)
         #expect(retired.contains("DESCRIBE_PROVIDER"))
         #expect(retired.contains("REPORT_PROVIDER"))

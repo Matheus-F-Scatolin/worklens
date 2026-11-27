@@ -15,6 +15,14 @@ and opening a fresh empty one above it.
 ## [Unreleased]
 
 ### Added
+- **Summaries through your Claude or ChatGPT plan.** With `SUMMARY_PROVIDERS` set to any of
+  `claude`, `codex` and `gemini`, in the order to try them, Worklens summarizes screenshots
+  through your own signed-in `claude` or `codex` command instead of, or before, a Gemini key.
+  Each call has no tools, no MCP servers, none of your settings or memory, and an empty folder;
+  the prompt goes on stdin. Worklens never signs either command in and never reads their
+  credentials: you run `claude auth login` or `codex login` yourself. `worklens summaries check`
+  says which are ready, and `describe-pending --provider claude --dry-run` prints exactly what
+  would be sent. Empty, the default, is Gemini alone, as before.
 - **Google Calendar setup starts with Copy setup prompt.** It copies a prompt for Claude Code
   or Codex that sets up the Google Cloud project, API, consent screen and OAuth client in your
   browser, stops for every sign-in or confirmation, and ends by telling you the two values to

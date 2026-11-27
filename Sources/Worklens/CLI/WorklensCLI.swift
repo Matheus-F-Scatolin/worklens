@@ -45,6 +45,7 @@ struct WorklensCLI: AsyncParsableCommand {
                     ConfigExampleCommand.self,
                     SettingsCommand.self,
                     MCPCommand.self,
+                    SummariesCommand.self,
                     InstallEnvCommand.self,
                 ]
             ),
