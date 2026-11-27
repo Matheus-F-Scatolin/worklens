@@ -32,12 +32,12 @@ struct NoticeTests {
 
     @Test("an issue carries its own wording and button")
     func issueNotice() {
-        let notice = Notice(.noGeminiKey, at: at)
+        let notice = Notice(.noSummarizer, at: at)
         #expect(notice.kind == .problem)
-        #expect(notice.issue == .noGeminiKey)
+        #expect(notice.issue == .noSummarizer)
         // #124: the key issues lead to Settings → Accounts, where a key can now be typed.
         #expect(notice.action == .openAccountSettings)
-        #expect(notice.message == SetupIssue.noGeminiKey.message)
+        #expect(notice.message == SetupIssue.noSummarizer.message)
         #expect(notice.level == .problem)
     }
 
@@ -45,7 +45,7 @@ struct NoticeTests {
     /// already the scheduler's own state, and the icon comes from there.
     @Test("only the key issues block work")
     func blocking() {
-        #expect(SetupIssue.noGeminiKey.blocksWork)
+        #expect(SetupIssue.noSummarizer.blocksWork)
         #expect(SetupIssue.keyRejected.blocksWork)
         #expect(!SetupIssue.screenRecordingDenied.blocksWork)
         // #122: capture is refused outright, so this one earns the icon. The machine-name
@@ -64,7 +64,7 @@ struct NoticeTests {
             Notice(.noAnthropicKey, at: at),
             Notice(kind: .problem, message: "Report failed", at: at, action: .retryDailyReport),
             Notice(kind: .problem, message: "Report failed", at: at, action: .retryWeeklyReport),
-            Notice(.noGeminiKey, at: at),
+            Notice(.noSummarizer, at: at),
         ]
         let data = try JSONEncoder().encode(stored)
         let decoded = try JSONDecoder().decode([Notice].self, from: data)

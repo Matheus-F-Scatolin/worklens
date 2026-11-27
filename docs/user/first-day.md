@@ -19,7 +19,7 @@ brings its window to the front — and
 back in.
 
 The window is six pages in the order they happen: light or dark, what Worklens does, a sample
-week, Screen Recording, your keys, and where your days show up. The first page is three cards:
+week, Screen Recording, how Worklens summarizes, and where your days show up. The first page is three cards:
 **Light**, **Dark** and **System** (which follows your Mac), with Light already ringed, because a
 new install starts in light. Click a card and Worklens switches to it at once and goes on to the
 next page; the arrow keys move the ring and Return picks the ringed card. You can change it any
@@ -34,14 +34,17 @@ happens after you do.
 
 While the window is unfinished the menu carries **Finish setting up Worklens (2 of 3)**, which
 re-opens it; afterwards, Settings → Advanced → **Show welcome again** does. The three are Screen
-Recording, the Gemini key and finishing the window. An install that was already running
+Recording, a way to summarize and finishing the window. An install that was already running
 before this version was never shown the window and kept capturing as it was.
 
-The Gemini key is pasted on the window's fifth page — the same field and masked display as
-Settings → Connections, the key checked as it is pasted — and [setup.md](setup.md#keys) says where
-it comes from. If you skip the page, the menu says **Add your Gemini API key to get started** over an **Open .env…** item once setup
-is finished; that file is `~/Library/Application Support/Worklens/.env`, and **Reload
-configuration** picks up what you paste into it.
+The fifth page, **How Worklens summarizes**, has three cards: **Claude subscription** (your
+Claude plan through Claude Code), **ChatGPT subscription** (your ChatGPT plan through Codex) and
+**Gemini API key** (Google bills you per screenshot, about $3 a month). A subscription card says
+whether the command is installed and signed in, and shows the sign-in command with **Copy** and
+**Open Terminal**: you sign in there yourself, and the card checks again when you come back to the
+window. Any one connected is enough; [setup.md](setup.md#summaries) compares them. If you skip the
+page, the menu says **Pick how Worklens summarizes to get started** once setup is finished, and
+Settings → Connections → **Summaries** has the same three.
 
 ## Minute 1 — granting Screen Recording
 

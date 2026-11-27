@@ -40,6 +40,15 @@ public enum HelpLink: String, CaseIterable, Sendable {
     case menuBarIconMissing = "i-cannot-find-the-menu-bar-icon"
     /// An MCP client that lists none of the Worklens tools.
     case mcpToolsMissing = "claude-desktop-does-not-show-the-worklens-tools"
+    /// No connected Claude or ChatGPT plan and no Gemini key: screenshots are kept, never
+    /// summarized.
+    case nothingSummarizes = "nothing-is-set-up-to-summarize-your-screenshots"
+    /// `claude` or `codex` was signed out, ran out, or is signed in with an API key.
+    case signInStopped = "your-claude-or-chatgpt-sign-in-stopped-working"
+    /// A Claude or ChatGPT plan hit its usage limit.
+    case planLimit = "your-plan-hit-its-limit"
+    /// Screenshots have waited past their turn to be summarized.
+    case screenshotsWaiting = "screenshots-are-waiting-to-be-summarized"
 
     /// The page every anchor above lives in, relative to the repository root.
     public static let page = "docs/user/troubleshooting.md"

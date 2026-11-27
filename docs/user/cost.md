@@ -1,7 +1,17 @@
 # What Worklens costs
 
-You pay Google directly, for your own key. There is no Worklens subscription, no
-account and no margin in the middle — nothing is charged by this project, ever.
+Worklens never bills you. It summarizes through something you already pay for, and there is no
+Worklens subscription, no account and no margin in the middle.
+
+- **A Claude or ChatGPT plan.** No bill from Worklens and nothing per screenshot: summaries count
+  against your plan's usage limits, the same limits your own use of Claude or ChatGPT does.
+  Anthropic says calls through `claude -p` with your Claude plan draw from your subscription's
+  limits ([Use the Claude Agent SDK with your Claude plan](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan)).
+  When a plan reaches its limit, Worklens waits for the reset, or uses the next way you connected
+  ([troubleshooting](troubleshooting.md#your-plan-hit-its-limit)). Settings → Usage shows these
+  calls at $0.
+- **A Gemini API key.** You pay Google directly, per screenshot; the rest of this page is that
+  bill.
 
 ## At the defaults
 
@@ -37,7 +47,8 @@ carries the same raise while summarizing is on hold, beside the **Daily budget**
 the budget for good.
 
 Nothing raises the budget on its own, and Worklens can only spend against a key you put in `.env`
-yourself.
+yourself. The budget counts Gemini's spend; a Claude or ChatGPT plan is held by its own usage
+limits instead.
 
 ## Reading the spend table
 

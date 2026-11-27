@@ -71,7 +71,7 @@ public enum SettingsSection: String, Sendable, CaseIterable, Equatable, Hashable
 public enum SettingsAnchor: String, Sendable, CaseIterable, Equatable, Hashable {
     /// Capture → Access: the grants.
     case access
-    /// Connections → AI providers: the Gemini key.
+    /// Connections → Summaries: Claude, ChatGPT and the Gemini key.
     case providers
     /// Connections → Use Worklens from Claude or Codex.
     case assistants

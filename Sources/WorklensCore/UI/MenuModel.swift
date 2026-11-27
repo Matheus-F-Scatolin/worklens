@@ -642,12 +642,12 @@ public struct MenuModel: Equatable, Sendable {
     }
 
     /// The first-run line. Second person, no warning glyph: nothing has gone wrong yet.
-    public static var firstRunText: String { L10n.string("Add your Gemini API key to get started") }
+    public static var firstRunText: String { L10n.string("Pick how Worklens summarizes to get started") }
 
-    /// The problem `firstRunText` stands in for. #239: only the Gemini key — a missing Claude
-    /// key is a choice, not a problem, and is never raised at launch.
+    /// The problem `firstRunText` stands in for: nothing is set up to summarize (no connected
+    /// Claude or ChatGPT plan and no Gemini key).
     static func isMissingKey(_ notice: Notice) -> Bool {
-        notice.issue == .noGeminiKey
+        notice.issue == .noSummarizer
     }
 
     /// `Granola needs attention — reconnect it in Settings`, or with two sources,

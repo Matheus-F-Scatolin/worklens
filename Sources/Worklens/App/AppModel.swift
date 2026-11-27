@@ -118,6 +118,20 @@ final class AppModel: ObservableObject {
     /// #46: exact foreground intervals from `NSWorkspace`, running exactly when capture runs.
     private(set) var sessionRecorder: ForegroundSessionRecorder?
     private(set) var describe: DescribeWorker?
+    /// The chain behind `describe` when `SUMMARY_PROVIDERS` names a subscription, kept so the
+    /// notices and Settings → Connections can ask which provider it is skipping and why. Nil for
+    /// a Gemini-only install, whose describer is the Gemini client itself.
+    var summaryChain: DescriberChain?
+    /// What `claude auth status` and `codex login status` last said. Asked when the welcome
+    /// window or Settings comes forward, on Connect, and now and then while a sign-in is failing.
+    /// Worklens never signs either command in or out.
+    @Published var subscriptionStatuses: [SubscriptionTool: SubscriptionStatus] = [:]
+    /// When the status commands were last asked, so a failing sign-in is re-checked every few
+    /// minutes rather than on every refresh.
+    var subscriptionStatusCheckedAt: Date?
+    var subscriptionStatusTask: Task<Void, Never>?
+    /// When each provider last wrote a summary, keyed by `SummaryProvider.rawValue`.
+    @Published var lastSummaryByProvider: [String: Date] = [:]
     private(set) var timeline: TimelineWriter?
 
     /// #90: the canonical project list, for the Projects settings tab. Nil until the stack is up.
@@ -582,7 +596,8 @@ final class AppModel: ObservableObject {
             // SUMMARY_PROVIDERS: Claude, Codex and Gemini in the person's order, or Gemini alone
             // when the key is the only thing set up, exactly as before.
             if let describer = SummaryProviders.describer(config: config) {
-                clear(.noGeminiKey)
+                clear(.noSummarizer)
+                summaryChain = describer as? DescriberChain
                 let requeued = (try? DescribeQueries(db).requeueRejectedFailures(
                     day: DayBoundaries.dayString(Date())
                 )) ?? 0
@@ -606,7 +621,8 @@ final class AppModel: ObservableObject {
                     }
                 )
             } else {
-                raise(.noGeminiKey)
+                summaryChain = nil
+                raise(.noSummarizer)
             }
 
         } catch {
@@ -774,6 +790,7 @@ final class AppModel: ObservableObject {
             budgetOverrideUSD = await cost.overrideToday()
         }
         await refreshGoogleReconnect()
+        refreshSummaryNotices(db: db)
         render()
     }
 
@@ -1764,9 +1781,9 @@ final class AppModel: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
-    /// No Gemini key: the app is installed but has never been set up. Drives the
-    /// menu's first-run line, and is re-derived on every `render()` so it goes away the moment a
-    /// key arrives.
+    /// Nothing is set up to summarize (no connected Claude or ChatGPT plan, no Gemini key): the
+    /// app is installed but has never been set up. Drives the menu's first-run line, and is
+    /// re-derived on every `render()` so it goes away the moment a way to summarize arrives.
     static func isFirstRun(_ config: Config) -> Bool {
         SummaryProviders.effective(config).isEmpty
     }
@@ -1849,7 +1866,7 @@ final class AppModel: ObservableObject {
     }
 
     /// Saves a typed API key to the settings file and rebuilds the stack, which is what clears
-    /// the `noGeminiKey` problem and starts describing again.
+    /// the `noSummarizer` problem and starts describing again.
     ///
     /// The value is trimmed and refused only when it cannot be a key at all; a wrong-looking
     /// prefix is a caption, not a refusal (`Accounts.shapeWarning`). Nothing here logs the value:
@@ -1857,12 +1874,24 @@ final class AppModel: ObservableObject {
     func setCredential(_ provider: KeyProvider, _ typed: String) throws {
         let value = Accounts.normalize(typed)
         if let problem = Accounts.entryError(value) { throw AccountEntryError(problem) }
+        // A key saved beside a Claude or ChatGPT plan joins the list Worklens tries; with nothing
+        // listed, the key alone is how it works, exactly as before.
+        if provider == .gemini, !config.summaryProviders.isEmpty, !config.summaryProviders.contains(.gemini) {
+            try settings.set(
+                summaryProvidersKey, SummaryProviders.value(SummaryProviders.connecting(.gemini, config: config))
+            )
+        }
         try applySetting(provider.envKey, value)
     }
 
     /// Forgets a key Worklens stored. Whatever a `.env` sets then wins again — which is why the
     /// row re-reads its source rather than assuming the key is now missing.
     func clearCredential(_ provider: KeyProvider) throws {
+        if provider == .gemini, config.summaryProviders.contains(.gemini) {
+            try settings.set(
+                summaryProvidersKey, SummaryProviders.value(SummaryProviders.disconnecting(.gemini, config: config))
+            )
+        }
         try clearSetting(provider.envKey)
     }
 
@@ -2701,7 +2730,7 @@ final class AppModel: ObservableObject {
     var setupProgress: SetupProgress {
         SetupProgress(
             screenRecording: screenRecording == .granted,
-            geminiKey: !SummaryProviders.effective(config).isEmpty,
+            summaries: !SummaryProviders.effective(config).isEmpty,
             onboardedAt: onboardedAt
         )
     }

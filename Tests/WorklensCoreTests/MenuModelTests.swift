@@ -195,7 +195,7 @@ struct MenuModelTests {
     func problemCap() {
         let older = Notice(kind: .problem, message: "Sync failed", at: dayStart)
         let newer = Notice(kind: .problem, message: "Sync failed", at: dayStart.addingTimeInterval(60))
-        let issue = Notice(.noGeminiKey, at: dayStart.addingTimeInterval(-3600))
+        let issue = Notice(.noSummarizer, at: dayStart.addingTimeInterval(-3600))
 
         let ordinary = model(.running, notices: [older, newer], now: dayStart.addingTimeInterval(120))
         #expect(ordinary.problem?.message == "Sync failed")  // newest of equals
@@ -204,7 +204,7 @@ struct MenuModelTests {
         let withIssue = model(
             .running, notices: [older, newer, issue], now: dayStart.addingTimeInterval(120)
         )
-        #expect(withIssue.problem?.issue == .noGeminiKey)
+        #expect(withIssue.problem?.issue == .noSummarizer)
     }
 
     /// An `NSMenu` is as wide as its widest item, so a row quoting a transport error is a row
@@ -277,7 +277,7 @@ struct MenuModelTests {
     /// worth a permanent badge, but a key that is missing means nothing is being described.
     @Test("a blocking setup issue moves the icon; an advisory one does not")
     func setupIssueIcon() {
-        let key = Notice(.noGeminiKey, at: dayStart)
+        let key = Notice(.noSummarizer, at: dayStart)
         #expect(model(.running, notices: [key]).icon == .attention)
         #expect(model(.running, accessibilityMissing: true).icon == .capturing)
         #expect(model(.running, browsersMissingURLs: ["Safari"]).icon == .capturing)
@@ -427,9 +427,9 @@ struct MenuModelTests {
     @Test("#116: a first run asks for keys once instead of warning about each of them")
     func firstRun() {
         // #239: the missing Gemini key is the one thing raised at launch.
-        let keys = [Notice(.noGeminiKey, at: dayStart)]
+        let keys = [Notice(.noSummarizer, at: dayStart)]
         let fresh = model(.running, notices: keys, firstRun: true)
-        #expect(fresh.firstRunLine == "Add your Gemini API key to get started")
+        #expect(fresh.firstRunLine == "Pick how Worklens summarizes to get started")
         // The key warning says the same thing twice to someone who has not started yet.
         #expect(fresh.problemLine == nil)
         // #239: a setup step is not a fault, so the first icon a new install shows is the
@@ -447,7 +447,7 @@ struct MenuModelTests {
         // Past the first run the key's warning comes back.
         let later = model(.running, notices: keys)
         #expect(later.firstRunLine == nil)
-        #expect(later.problem?.issue == .noGeminiKey)
+        #expect(later.problem?.issue == .noSummarizer)
 
         // A broken .env is a configuration error, not an invitation to set one up.
         let broken = model(.running, configError: "bad .env", firstRun: true)
@@ -865,7 +865,7 @@ struct MenuSymbolsTests {
             var copy = state(.stopped)
             copy.setup = SetupProgress(
                 screenRecording: done > 0,
-                geminiKey: done > 1,
+                summaries: done > 1,
                 onboardedAt: done > 2 ? dayStart : nil
             )
             return copy

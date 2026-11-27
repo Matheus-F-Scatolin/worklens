@@ -224,38 +224,142 @@ struct SetupScreenRecordingPage: View {
     }
 }
 
-// MARK: - Page 4: your keys
+// MARK: - Page 4: how Worklens summarizes
 
-/// The one key Worklens needs (#232).
+/// Three ways to summarize, any one of them enough: a Claude plan through Claude Code, a ChatGPT
+/// plan through Codex, or a Gemini key.
 ///
-/// Gemini describes your screen, so without it there is nothing to search.
-///
-/// The fields are `AccountRowView` in its `.setupPage` layout: the same paste, the same Save,
-/// the same Verify as Settings → Models & budget, drawn without the form chrome.
+/// A subscription card walks through its four states (not installed, installed but not signed
+/// in, signed in, connected) by asking the command, never by signing it in: the sign-in command
+/// is shown with Copy and Open Terminal, and the person runs it. The cards ask again whenever
+/// this window comes back to the front, which is when someone returns from Terminal. The Gemini
+/// card is `AccountRowView` in its `.setupPage` layout, the same paste, Save and Verify as
+/// Settings → Connections.
 struct SetupKeysPage: View {
     @ObservedObject var model: AppModel
+    @State private var copied: SubscriptionTool?
+    @State private var connecting: SummaryProvider?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Space.section) {
-                gemini
                 Text(SetupCopy.keysWhy)
+                    .font(Theme.Text.rowBody)
+                    .fixedSize(horizontal: false, vertical: true)
+                ForEach(model.summaryConnections) { connection in
+                    if connection.provider.tool == nil {
+                        gemini(connection)
+                    } else {
+                        subscription(connection)
+                    }
+                }
+                Text(SetupCopy.signInIsYours)
                     .font(Theme.Text.metadata)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: Theme.Space.row) {
+                    Text(SetupCopy.Privacy.subscriptionTerms)
+                        .font(Theme.Text.metadata)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: Theme.Space.section) {
+                        Link(SetupCopy.Privacy.claudeTrainingLink, destination: SetupLinks.claudePrivacy)
+                        Link(SetupCopy.Privacy.chatGPTTrainingLink, destination: SetupLinks.chatGPTPrivacy)
+                        Spacer(minLength: 0)
+                    }
+                    .font(Theme.Text.metadata)
+                }
             }
             .padding(Theme.Space.pane)
         }
+        .task { model.refreshSubscriptionStatuses() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.refreshSubscriptionStatuses()
+        }
     }
 
-    private var gemini: some View {
+    private func subscription(_ connection: SummaryConnection) -> some View {
         VStack(alignment: .leading, spacing: Theme.Space.row) {
-            SetupCardHeading(title: SetupCopy.geminiHeading, tag: SetupCopy.geminiRequired)
-            Text(SetupCopy.geminiWhy)
+            SetupCardHeading(title: connection.title, tag: nil)
+            Text(connection.subtitle)
                 .font(Theme.Text.rowBody)
+                .fixedSize(horizontal: false, vertical: true)
+            SettingsNote(text: connection.stateLine, level: connection.level)
+            if let expiry = connection.expiryLine(timeZone: .autoupdatingCurrent, locale: .autoupdatingCurrent) {
+                Text(expiry)
+                    .font(Theme.Text.metadata)
+                    .foregroundStyle(.secondary)
+            }
+            if connection.needsSignIn, let tool = connection.provider.tool {
+                HStack(spacing: Theme.Space.row) {
+                    Text(tool.loginCommand)
+                        .font(.system(.body, design: .monospaced))
+                        .textSelection(.enabled)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(.quaternary))
+                    Button(copied == tool ? SetupCopy.copiedLabel : SetupCopy.copyLabel) {
+                        model.copySignInCommand(tool.loginCommand)
+                        copied = tool
+                    }
+                    Button(SetupCopy.openTerminalLabel) { model.openTerminal() }
+                    Spacer(minLength: 0)
+                }
+            }
+            HStack(spacing: Theme.Space.row) {
+                switch connection.state {
+                case .notInstalled:
+                    if let install = SetupLinks.install(connection.provider) {
+                        Link(
+                            connection.provider == .claude ? SetupCopy.installClaudeLabel : SetupCopy.installCodexLabel,
+                            destination: install
+                        )
+                    }
+                    Button(SetupCopy.checkAgainLabel) { model.refreshSubscriptionStatuses() }
+                case .ready:
+                    Button(SetupCopy.connectLabel) { connect(connection.provider) }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(connecting != nil)
+                case .connected:
+                    Button(SetupCopy.disconnectLabel) { model.disconnectSummaryProvider(connection.provider) }
+                case .signedOut, .notSubscription:
+                    Button(SetupCopy.checkAgainLabel) { model.refreshSubscriptionStatuses() }
+                    if connection.listed {
+                        Button(SetupCopy.disconnectLabel) { model.disconnectSummaryProvider(connection.provider) }
+                    }
+                case .checking, .needsKey:
+                    ProgressView().controlSize(.small)
+                }
+                if connecting == connection.provider { ProgressView().controlSize(.small) }
+                Spacer(minLength: 0)
+            }
+            Text(SetupCopy.subscriptionCost)
+                .font(Theme.Text.metadata)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+    }
+
+    private func gemini(_ connection: SummaryConnection) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.row) {
+            SetupCardHeading(title: connection.title, tag: nil)
+            Text(connection.subtitle)
+                .font(Theme.Text.rowBody)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(SetupCopy.geminiWhy)
+                .font(Theme.Text.metadata)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if let row = model.accountRows.first(where: { $0.provider == .gemini }) {
                 AccountRowView(model: model, row: row, layout: .setupPage)
+            }
+            if case .ready = connection.state {
+                HStack {
+                    SettingsNote(text: connection.stateLine)
+                    Button(SetupCopy.connectLabel) { connect(.gemini) }
+                }
             }
             SettingsNote(text: SetupCopy.Privacy.billingCaveat, level: .attention)
             Text(SetupCopy.geminiCost)
@@ -269,6 +373,16 @@ struct SetupKeysPage: View {
         .card()
     }
 
+    /// Asks the command once more and connects it only if it is signed in with a plan.
+    private func connect(_ provider: SummaryProvider) {
+        connecting = provider
+        Task {
+            // A refusal needs no line of its own: the check behind it has already redrawn the
+            // card with what the command said.
+            await model.connectSummaryProvider(provider)
+            connecting = nil
+        }
+    }
 }
 
 // MARK: - Page 5: ready
@@ -296,6 +410,12 @@ struct SetupReadyPage: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if model.screenRecording != .granted {
                     SettingsNote(text: SetupCopy.startWithoutScreenRecording, level: .attention)
+                }
+                // Two or more ways to summarize: which goes first, and where that changes.
+                if let order = SummaryProviders.orderSentence(SummaryProviders.effective(model.config)) {
+                    Text(order)
+                        .font(Theme.Text.rowBody)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 claudeCard
                 readerCard
@@ -397,4 +517,18 @@ struct SetupCardHeading: View {
 /// and the host has a row in `PRIVACY.md`'s "What leaves your machine" table.
 enum SetupLinks {
     static let geminiKey = URL(string: "https://aistudio.google.com/app/apikey")!
+    /// Where each command is installed from.
+    static let claudeInstall = URL(string: "https://code.claude.com/docs/en/setup")!
+    static let codexInstall = URL(string: "https://openai.com/codex/")!
+    /// Where each company keeps the setting that says whether it may train on what you send.
+    static let claudePrivacy = URL(string: "https://claude.ai/settings/data-privacy-controls")!
+    static let chatGPTPrivacy = URL(string: "https://chatgpt.com/#settings/DataControls")!
+
+    static func install(_ provider: SummaryProvider) -> URL? {
+        switch provider {
+        case .claude: claudeInstall
+        case .codex: codexInstall
+        case .gemini: nil
+        }
+    }
 }

@@ -54,7 +54,7 @@ public enum SetupCopy {
         public static let records = L10n.string(
             "It takes a screenshot of the window you are in, about once a minute.")
         public static let stays = L10n.string(
-            "Everything stays in one folder on this Mac. A screenshot goes to Gemini for a one-line description, and is deleted afterwards.")
+            "Everything stays in one folder on this Mac. A screenshot goes to the service you connect (Claude, ChatGPT or Gemini) for a one-line summary, and is deleted afterwards.")
         public static let get = L10n.string(
             "You get your day, searchable, here and in Claude Desktop.")
 
@@ -96,7 +96,7 @@ public enum SetupCopy {
 
         /// `PRIVACY.md` \u{00A7} "What leaves your machine".
         public static let leaves = [
-            L10n.string("Google (Gemini) describes each frame."),
+            L10n.string("The service you connect summarizes each screenshot: Claude through your Claude plan, ChatGPT through your ChatGPT plan, or Google's Gemini API with your key."),
             // PRIVACY.md's own version of this line opens "This table is the whole list", which
             // is a pointer to the destinations table there. This page has no table, so the
             // sentence it borrows is the one from § "Privacy in 30 seconds" that stands alone.
@@ -113,14 +113,22 @@ public enum SetupCopy {
             L10n.string("the menu deletes the last 10 minutes or the last hour."),
         ]
 
-        /// Used on page 3 as well: it is the one thing about a Gemini key that costs privacy
-        /// rather than money. `PRIVACY.md` \u{00A7} "What leaves your machine".
+        /// Used on the Gemini card as well, and only there: it is the one thing about a Gemini key
+        /// that costs privacy rather than money. `PRIVACY.md` \u{00A7} "What leaves your machine".
         public static let billingCaveat = L10n.string(
             "Use a billing-enabled Gemini project. On Google's free tier your prompts and images may be used to improve their models. On a paid project they are not.")
 
+        /// What a subscription changes about who may keep a screenshot. `PRIVACY.md` \u{00A7} "What
+        /// leaves your machine". The page links each company's own setting under it.
+        public static let subscriptionTerms = L10n.string(
+            "With a Claude or ChatGPT plan, that company's own terms for your plan apply, and whether it may train on your screenshots depends on your own setting with it. Google's paid Gemini API does not train on them.")
+        /// The two links under `subscriptionTerms`.
+        public static let claudeTrainingLink = L10n.string("Your Claude privacy settings")
+        public static let chatGPTTrainingLink = L10n.string("Your ChatGPT data controls")
+
         /// Everything the test checks against `PRIVACY.md`.
         public static var all: [String] {
-            records + neverRecords + leaves + controls + [billingCaveat]
+            records + neverRecords + leaves + controls + [billingCaveat, subscriptionTerms]
         }
 
         /// The sentence under the four lists, which is the promise the rest of the app keeps.
@@ -161,25 +169,38 @@ public enum SetupCopy {
     /// Settings → Permissions, and a page nobody can leave is a page people force-quit.
     public static let screenRecordingSkip = L10n.string("Skip for now")
 
-    // MARK: - Page 4: your keys
+    // MARK: - Page 4: how Worklens summarizes
 
     public static let keysWhy = L10n.string(
-        "Worklens has no server and no account: it calls Google with a key you own, billed to you, and you can see every call under Settings \u{2192} Usage.")
+        "Each screenshot gets a one-line summary, which is what makes your day searchable. Worklens has no server and no account: it summarizes through a plan or a key you already have. Connect one; you can add the others later in Settings \u{2192} Connections.")
+    /// Under the three cards: Worklens never signs anything in for you.
+    public static let signInIsYours = L10n.string(
+        "You sign in yourself, in Terminal. Worklens never runs the sign-in or reads it, and Disconnect never signs you out.")
 
-    /// The Gemini half: the one key Worklens cannot describe a screen without.
-    public static let geminiHeading = L10n.string("Gemini")
-    public static let geminiRequired = L10n.string("Required")
+    /// The Gemini card's lines.
     public static let geminiWhy = L10n.string(
-        "Gemini describes each screenshot in a line or two, which is what makes your day searchable. Without this key Worklens still captures, and describes what it kept once you add one.")
+        "A key from Google AI Studio, billed to you per screenshot. Without any way to summarize, Worklens still captures, and summarizes what it kept once you connect one.")
     /// From `docs/user/cost.md`. A figure, not a promise: the ledger under Settings →
-    /// Models & budget is what says what you actually spent.
+    /// Usage is what says what you actually spent.
     public static let geminiCost = L10n.string(
         "About $0.10 a day at the defaults. Settings \u{2192} Usage shows what you have spent and stops at a daily budget you set.")
     public static let geminiLinkLabel = L10n.string("Get a Gemini key")
 
-    /// The plain button beside Continue. The key can be pasted later in Settings →
-    /// Connections, and the menu says so until it arrives.
-    public static let keysLater = L10n.string("I\u{2019}ll add the key later")
+    /// The subscription cards' lines.
+    public static let subscriptionCost = L10n.string(
+        "No bill from Worklens: summaries count against your plan's usage limits, like your own use does.")
+    public static let installClaudeLabel = L10n.string("Install Claude Code")
+    public static let installCodexLabel = L10n.string("Install Codex")
+    public static let copyLabel = L10n.string("Copy")
+    public static let copiedLabel = L10n.string("Copied")
+    public static let openTerminalLabel = L10n.string("Open Terminal")
+    public static let checkAgainLabel = L10n.string("Check again")
+    public static let connectLabel = L10n.string("Connect")
+    public static let disconnectLabel = L10n.string("Disconnect")
+
+    /// The plain button beside Continue. A way to summarize can be connected later in Settings
+    /// → Connections, and the menu says so until one is.
+    public static let keysLater = L10n.string("I\u{2019}ll pick one later")
 
     // MARK: - Page 5: ready
 

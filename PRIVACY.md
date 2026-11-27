@@ -12,9 +12,9 @@ software, ever — there is no code in the repository that could send it.
 
 - **Everything lives in one folder on your Mac**, `DATA_DIR`. `rm -rf` it and Worklens knows
   nothing about you.
-- **One destination sees your activity**, a paid API you configure yourself: Google (Gemini)
-  describes each frame. Nothing goes to Anthropic from the app any more: the daily and weekly
-  reports it used to write with Claude were removed on 2026-10-05.
+- **One destination sees your activity, the one you connect.** The service you connect summarizes each screenshot: Claude through your Claude plan, ChatGPT through your ChatGPT plan, or Google's Gemini API with your key. With more than one connected, the first in your order that answers summarizes; the
+  others see nothing until it cannot. The daily and weekly reports Worklens used to write with
+  Claude were removed on 2026-10-05.
 - **Everything else that leaves is optional**: GitHub, asked once every 15 minutes
   what `main` points at and nothing else, and the context sources you connect yourself. Each one
   has a row in the table below.
@@ -46,7 +46,7 @@ this software.
 | **GitHub, through the `gh` command** — `api.github.com` | under the login `gh` already holds (Worklens never reads its token): three searches for your own PRs, your own issues and the PRs you reviewed, updated since a date; one request for your username; and one request for the reviews on each PR of someone else's you reviewed; and, with `MEMO_REPOS` set, one file list (paths and change types, never contents) per merged PR of yours in those repos, read once. The answers keep each item's title, link, repo, number, state and times — never a body, a diff or a review's text | once per context sync while `GITHUB_SHIPPED=true` (the default) and `gh` is installed and logged in, and when you run `worklens shipped sync`, and, for a memo repo's merged PR, once when it first lands or when `MEMO_REPOS` changes | `GITHUB_SHIPPED=false`, which also deletes what was stored; an empty `MEMO_REPOS` (the default) reads no file list and deletes the memo rows (`Outputs/GHRunner.swift`, `Outputs/OutputSync.swift`, `Outputs/MemoOutputs.swift`) |
 | **Google Calendar** — `www.googleapis.com` | your Google access token and a request for your primary calendar's events in a date window | once per context sync, only after you connect Google in Settings → Connections | *Disconnect* in that source's ••• menu (`Context/Google/CalendarSource.swift`) |
 | **Google sign-in** — `accounts.google.com`, `oauth2.googleapis.com` | the OAuth exchange itself: your client id and secret, the authorisation code, a refresh token on renewal or revocation, and one `userinfo` call for the address of the account you connected. The browser's redirect comes back to a loopback server on `127.0.0.1` that is open only for those few seconds and never leaves the Mac (`Context/Google/LoopbackReceiver.swift`) | when you connect or disconnect Google, and when an access token expires | do not connect Google (`Context/Google/GoogleAuth.swift`) |
-| **Pages you open from a menu or a button** — `console.cloud.google.com`, `myaccount.google.com`, `app.granola.ai`, `claude.ai`, `openai.com`, `github.com`, `aistudio.google.com` | nothing from Worklens. These are the pages Settings → Connections' setup steps, the "Revoke at …" item in each source's ••• menu, "Get Claude Desktop" and "Get Codex" (shown only when that app is not installed), the welcome window's "Get a Gemini key" link, and the Help menu's documents link to; clicking one opens it in your own browser, which then connects exactly as it would for any link you clicked. Worklens sends them no request and no credential. | only when you click a setup or revoke link, the key link on the welcome window, a Help menu item or a **Learn more** link | do not click them; the same steps are written out in `docs/user/integrations.md`, and the Help menu's documents normally open the copies inside the app rather than the web at all (`Context/IntegrationSetup.swift`, `Context/IntegrationRemoval.swift`, `Settings/ConnectionsSection.swift`, `UI/HelpDoc.swift`, `Setup/SetupPages.swift`) |
+| **Pages you open from a menu or a button** — `console.cloud.google.com`, `myaccount.google.com`, `app.granola.ai`, `claude.ai`, `code.claude.com`, `openai.com`, `chatgpt.com`, `github.com`, `aistudio.google.com` | nothing from Worklens. These are the pages Settings → Connections' setup steps, the "Revoke at …" item in each source's ••• menu, "Get Claude Desktop" and "Get Codex" (shown only when that app is not installed), the welcome window's "Get a Gemini key", "Install Claude Code", "Install Codex" and privacy-setting links, and the Help menu's documents link to; clicking one opens it in your own browser, which then connects exactly as it would for any link you clicked. Worklens sends them no request and no credential. | only when you click a setup or revoke link, the key link on the welcome window, a Help menu item or a **Learn more** link | do not click them; the same steps are written out in `docs/user/integrations.md`, and the Help menu's documents normally open the copies inside the app rather than the web at all (`Context/IntegrationSetup.swift`, `Context/IntegrationRemoval.swift`, `Settings/ConnectionsSection.swift`, `UI/HelpDoc.swift`, `Setup/SetupPages.swift`) |
 | **An MCP client, if you configure one** | over stdin/stdout, not the network — but the client will normally send it on to its own model. See below | only while a client keeps `worklens mcp` running | remove the `worklens` entry from the client's configuration (`MCP/WorklensMCPTools.swift`) |
 
 **`--fake` reaches none of these hosts.** The offline provider (#121) makes its sentences up
@@ -57,6 +57,12 @@ Two consequences worth knowing:
 
 - **Use a billing-enabled Gemini project.** On Google's free tier your prompts and images may be
   used to improve their models. On a paid project they are not. `.env.example` says so at the key.
+- **With a Claude or ChatGPT plan, that company's own terms for your plan apply, and whether it may
+  train on your screenshots depends on your own setting with it. Google's paid Gemini API does not
+  train on them.** The settings are yours to check: Claude's **Model Improvement** under
+  [Privacy settings](https://claude.ai/settings/data-privacy-controls), and ChatGPT's **Improve the
+  model for everyone** under [Data controls](https://chatgpt.com/#settings/DataControls), which
+  also covers Codex on a personal account. The welcome window links both.
 - **Meeting transcripts never reach a prompt.** A body over 2 000 characters — which is what a
   Granola transcript is — is written to `data/context/<source>/<id>.md` and referenced from the
   database by path. The describe prompt carries at most the title of the meeting a frame falls
@@ -184,7 +190,8 @@ build if a new host appears in `Sources/` without a row here
 
 **Nothing is captured before you have been told all of this (#131).** On a first launch Worklens
 opens a welcome window that shows the three lists on this page — what it records, what it never
-records, what leaves your Mac — and only then asks for Screen Recording, your Gemini API key and
+records, what leaves your Mac — and only then asks for Screen Recording, a way to summarize (a
+Claude or ChatGPT plan you sign in to yourself, or a Gemini API key) and
 the optional permissions, each of which can be skipped. Capture starts when you press **Start
 capturing** on its last page, and not before; the notifications dialog is on that window's
 optional page rather than being the first thing a new install does. An install that was already

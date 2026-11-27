@@ -47,7 +47,7 @@ public enum NoticeAction: String, Codable, Sendable, Equatable, CaseIterable {
     public var label: String {
         switch self {
         case .openEnvFile: return L10n.string("Open .env…")
-        case .openAccountSettings: return L10n.string("Add your Gemini API key…")
+        case .openAccountSettings: return L10n.string("Open Connections\u{2026}")
         case .reloadConfig: return L10n.string("Reload configuration")
         case .grantScreenRecording: return ScreenRecordingCopy.askLabel
         case .grantAccessibility: return L10n.string("Grant Accessibility…")
@@ -81,8 +81,20 @@ public enum SetupIssue: String, Codable, Sendable, CaseIterable, Equatable {
     case dataDirAnotherMac
     /// A key is set but the provider rejected it (401/403).
     case keyRejected
-    /// `GEMINI_API_KEY` is missing: frames pile up undescribed.
-    case noGeminiKey
+    /// Nothing is set up to summarize: no connected Claude or ChatGPT plan and no Gemini key, so
+    /// screenshots pile up unsummarized. The raw value is the one it had when Gemini was the only
+    /// way, so a stored notice log still decodes.
+    case noSummarizer = "noGeminiKey"
+    /// The Claude sign-in stopped working (signed out, ran out, or an API key instead of a plan):
+    /// Claude is skipped and the next way in the order summarizes, if there is one.
+    case claudeSignedOut
+    /// The same, for Codex and the ChatGPT plan.
+    case codexSignedOut
+    /// A plan hit its usage limit: the next way in the order summarizes until it resets.
+    case subscriptionLimit
+    /// More than `SummaryNotices.backlogThreshold` screenshots have waited longer than
+    /// `SummaryNotices.pastDueAfter`. A batch that is not due yet is never counted.
+    case summariesWaiting
     /// The Claude key was missing when a report was asked for. Nothing raises it since the reports
     /// were cut (2026-10-05); it stays so a stored notice log that holds one still decodes, and
     /// `AppModel` drops it on load.
@@ -115,9 +127,9 @@ public enum SetupIssue: String, Codable, Sendable, CaseIterable, Equatable {
             return L10n.string("This data directory was last written by a different Mac.")
         case .keyRejected:
             return L10n.string("The API key was rejected: check it under Settings → Connections.")
-        case .noGeminiKey:
+        case .noSummarizer:
             return L10n.string(
-                "GEMINI_API_KEY is not set: screenshots are saved but not summarized. docs/user/setup.md#keys says where to get one."
+                "Nothing is set up to summarize your screenshots: they are saved but not summarized. Connect Claude, ChatGPT or a Gemini key in Settings \u{2192} Connections; docs/user/setup.md#summaries explains the three."
             )
         case .noAnthropicKey:
             // Never raised any more; only a notice stored before 2026-10-05 can hold it.
@@ -132,6 +144,17 @@ public enum SetupIssue: String, Codable, Sendable, CaseIterable, Equatable {
             return L10n.string(
                 "An assistant on this Mac can no longer reach Worklens: reconnect it in Settings → Connections."
             )
+        // The four below are raised with the sentence `SummaryNotices` words from what happened
+        // (who took over, until when, how many); these are what a stored copy falls back to.
+        case .claudeSignedOut:
+            return SummaryNotices.signedOutMessage(.claude, summarizing: nil)
+        case .codexSignedOut:
+            return SummaryNotices.signedOutMessage(.codex, summarizing: nil)
+        case .subscriptionLimit:
+            return L10n.string("Your plan hit its limit: summaries wait until it resets.")
+        case .summariesWaiting:
+            return SummaryNotices.backlogMessage(waiting: SummaryNotices.backlogThreshold)
+                ?? L10n.string("Screenshots are waiting to be summarized.")
         }
     }
 
@@ -140,7 +163,10 @@ public enum SetupIssue: String, Codable, Sendable, CaseIterable, Equatable {
         case .screenRecordingDenied: return .grantScreenRecording
         // #124: a key now has a home in Settings, so the three key issues lead there rather than
         // into a text editor. `DATA_DIR` still has no control and still opens the file.
-        case .keyRejected, .noGeminiKey, .noAnthropicKey: return .openAccountSettings
+        case .keyRejected, .noSummarizer, .noAnthropicKey: return .openAccountSettings
+        // Connections shows each way of summarizing with its state, the sign-in command and the
+        // order.
+        case .claudeSignedOut, .codexSignedOut, .subscriptionLimit, .summariesWaiting: return .openAccountSettings
         case .dataDirNotLocal: return .openEnvFile
         case .googleReconnect: return .reconnectGoogle
         // #248: the button opens the Claude pane, whose own Reconnect repoints the entry with
@@ -160,7 +186,10 @@ public enum SetupIssue: String, Codable, Sendable, CaseIterable, Equatable {
     /// configuration somebody chose, so it never wore the icon.
     public var blocksWork: Bool {
         switch self {
-        case .keyRejected, .noGeminiKey, .dataDirNotLocal: return true
+        case .keyRejected, .noSummarizer, .dataDirNotLocal: return true
+        // Another way in the order may be summarizing, and the health row already says when
+        // nothing is; a plan's limit is a wait, not a fault.
+        case .claudeSignedOut, .codexSignedOut, .subscriptionLimit, .summariesWaiting: return false
         case .noAnthropicKey: return false  // legacy: never raised since 2026-10-05
         case .screenRecordingDenied: return false  // the scheduler's own state already says so
         // Nothing has stopped: the folder may simply have been copied here, or the Mac renamed.
@@ -247,6 +276,23 @@ public struct Notice: Codable, Sendable, Equatable, Identifiable {
         case .problem: return dismissedAt == nil ? .problem : .muted
         case .done: return .ok
         case .info: return .neutral
+        }
+    }
+}
+
+extension SetupIssue {
+    /// The paragraph of `docs/user/troubleshooting.md` that answers this issue, for the
+    /// **Learn more** beside it. Nil where the sentence and its button already say everything.
+    public var helpLink: HelpLink? {
+        switch self {
+        case .screenRecordingDenied: return .screenRecordingOff
+        case .dataDirNotLocal: return .syncedDataDirectory
+        case .mcpDisconnected: return .mcpToolsMissing
+        case .noSummarizer: return .nothingSummarizes
+        case .claudeSignedOut, .codexSignedOut: return .signInStopped
+        case .subscriptionLimit: return .planLimit
+        case .summariesWaiting: return .screenshotsWaiting
+        case .dataDirAnotherMac, .keyRejected, .noAnthropicKey, .googleReconnect: return nil
         }
     }
 }

@@ -9,11 +9,12 @@ Recording grant on every rebuild anyway. Building it is one command.
 - macOS 14 or later (Apple silicon or Intel)
 - A Swift 6.1+ toolchain — Xcode, or the Command Line Tools: `xcode-select --install` (the
   one-line install below starts that for you)
-- A Gemini API key — [keys](#keys)
+- One way to summarize: a Claude or ChatGPT plan you are signed in to, or a Gemini API key —
+  [summaries](#summaries)
 
 ## Things only you can do
 
-Six steps in a Worklens setup cannot be done for you — they are grants, accounts and keychain
+Seven steps in a Worklens setup cannot be done for you — they are grants, accounts and keychain
 entries that belong to your Mac and your provider accounts. None of them can be automated.
 
 | Step | Why it is yours | When |
@@ -21,7 +22,8 @@ entries that belong to your Mac and your provider accounts. None of them can be 
 | Run `make dev-cert` once and answer both prompts (your login password, then one macOS authentication for the trust setting) | it writes to your login keychain and changes a certificate's trust settings | before the first build, so Screen Recording and Accessibility survive rebuilds — [signing.md](../contributing/signing.md) |
 | Grant **Screen Recording** and **Accessibility** again after the first certificate-signed build, and after `make install` | the signature changed, so macOS sees a new app; the first grant only reaches a copy that starts afterwards | once, then relaunch |
 | Approve the monthly "continue to allow screen recording" dialog | only you can answer a macOS dialog, and missing it stops capture silently | roughly monthly — [permissions.md](permissions.md) |
-| Put the Gemini key on a **paid, billing-enabled** project | on the free tier Google may train on your prompts and images | when you create the key — [keys](#keys) |
+| Sign in to `claude` (`claude auth login`) or `codex` (`codex login`) in Terminal, if you summarize with a plan | it is your account, and Worklens never runs a sign-in or reads one | before you press **Connect** — [summaries](#summaries) |
+| Put the Gemini key on a **paid, billing-enabled** project | on the free tier Google may train on your prompts and images | when you create the key, if you use one — [summaries](#summaries) |
 | Approve the Google consent screen (**Connect** in Settings → Connections) and keep yourself on the OAuth client's **test users** list while the screen is in testing | it is your Google account and your OAuth client | only if you connect Calendar — [integrations](integrations.md) |
 | Confirm your Granola plan allows personal API keys (Business plan) | Granola issues the key to you, and encrypts its own on-disk cache, so there is no fallback | only if you connect Granola — [integrations](integrations.md) |
 
@@ -173,20 +175,24 @@ it. Six pages:
 4. **Screen Recording**, which macOS only hands to a copy of Worklens that starts *after* you
    allow it, so the page offers to relaunch. **Skip for now** leaves it for later; the menu keeps
    offering the grant.
-5. **Your key.** The Gemini key is the one Worklens needs — it is what describes your screen —
-   and **Continue** waits for it. **I'll add the key later** skips the page entirely.
+5. **How Worklens summarizes.** Three cards: **Claude subscription**, **ChatGPT subscription**
+   and **Gemini API key**. A subscription card says whether the command is installed, whether it
+   is signed in and with which plan, and shows the sign-in command with **Copy** and **Open
+   Terminal**; you sign in there, come back, and the card checks again. **Connect** on any one is
+   enough, and **Continue** waits for one. **I'll pick one later** skips the page.
 6. **Ready.** One click adds Worklens to Claude Desktop, and **Open Worklens** opens the window
-   your days are read in. Accessibility and browser access are optional and live in
+   your days are read in. With two or more ways to summarize connected, it says which Worklens
+   tries first. Accessibility and browser access are optional and live in
    Settings → Capture → Access. **Done** closes the window, and that is what starts capture: until
    you press it nothing is recorded.
 
-The menu offers **Finish setting up Worklens** while Screen Recording, the Gemini key or the
+The menu offers **Finish setting up Worklens** while Screen Recording, a way to summarize or the
 window itself is outstanding — three things. Settings
 → Advanced → **Show welcome again** re-opens the window whenever you like. An install that was
 already running is never shown it.
 
 After **Done**, the first screenshot Worklens summarizes is the proof that capture, Screen
-Recording and the Gemini key all work, and one notification says so in its own words: "Your
+Recording and the way you summarize all work, and one notification says so in its own words: "Your
 day has started." with that first summary quoted underneath, for example *Worklens summarized
 your first screenshot: "Edits setup.sh in VS Code." Click to open the Today page.* Clicking it
 opens the Today page. It is posted once per install and only if notifications are on. The
@@ -196,21 +202,38 @@ gets it. If the first summary fails instead (a rejected key, the day's budget, n
 Recording), there is no notification: the menu's status line says what is wrong, as it always
 does.
 
-## Keys
+## Summaries
 
-Worklens uses one model and you pay Google directly. There is no Worklens account and no key of
-ours in the middle.
+Each screenshot gets a one-line summary, and that is what makes a day searchable. Worklens has
+no server and no account of its own: it summarizes through something you already have. Any one
+of these three is enough, and you can connect more than one.
 
-| Key | What it is for | Where to get it |
+| Way | What it uses | What you do |
 |---|---|---|
-| `GEMINI_API_KEY` | Gemini 3.5 Flash-Lite describes each frame | <https://aistudio.google.com/apikey> → create a key **in a billing-enabled project** |
+| **Claude subscription** | your Claude plan (Pro, Max, Team), through the `claude` command of [Claude Code](https://code.claude.com/docs/en/setup) | install Claude Code, run `claude auth login` in Terminal, then **Connect** |
+| **ChatGPT subscription** | your ChatGPT plan, through the `codex` command of [Codex](https://openai.com/codex/) | install Codex, run `codex login` in Terminal, then **Connect** |
+| **Gemini API key** | `GEMINI_API_KEY`, billed to you by Google per screenshot | <https://aistudio.google.com/apikey> → create a key **in a billing-enabled project**, then paste it |
+
+**You sign in yourself.** Worklens never runs `claude auth login` or `codex login`, never reads
+their credentials, and **Disconnect** only stops Worklens using a command: it never signs you
+out. To see what each command says, `worklens summaries check`.
+
+**The order.** With more than one connected, Worklens tries them in the order Settings →
+Connections → **Summaries** lists them (the arrows change it; it is `SUMMARY_PROVIDERS`). One
+that is signed out or at its plan's limit is skipped and the next one summarizes; a notice says
+so, and the first goes back to the front once it works again.
+
+**Privacy.** With a Claude or ChatGPT plan, that company's own terms for your plan apply, and
+whether it may train on your screenshots is your own setting with it: Claude's **Model
+Improvement** in [Privacy settings](https://claude.ai/settings/data-privacy-controls), ChatGPT's
+**Improve the model for everyone** in [Data controls](https://chatgpt.com/#settings/DataControls).
 
 > **Use a billing-enabled Gemini project.** On Google's free tier your prompts and images may be
 > used to improve their models. On a paid project they are not.
 
-Put it in `~/Library/Application Support/Worklens/.env` — the app writes that file itself on
-first launch, and the menu's **Open .env…** item opens it — then choose **Reload configuration**.
-Nothing else in the file has to change. What the model costs is in [cost.md](cost.md).
+The Gemini key goes in the welcome window or Settings → Connections, or in
+`~/Library/Application Support/Worklens/.env` followed by **Reload configuration**. What each way
+costs is in [cost.md](cost.md).
 
 If anything does not behave, [troubleshooting.md](troubleshooting.md#start-here) says where to
 look first.

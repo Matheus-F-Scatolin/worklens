@@ -23,6 +23,15 @@ and opening a fresh empty one above it.
   credentials: you run `claude auth login` or `codex login` yourself. `worklens summaries check`
   says which are ready, and `describe-pending --provider claude --dry-run` prints exactly what
   would be sent. Empty, the default, is Gemini alone, as before.
+- **Connect a Claude or ChatGPT plan from the welcome window or Settings.** The welcome window's
+  key page is now **How Worklens summarizes**, with three cards (Claude subscription, ChatGPT
+  subscription, Gemini API key); each says whether the command is installed and signed in, and
+  shows the sign-in command with **Copy** and **Open Terminal** for you to run. Settings →
+  Connections → **Summaries** has the same three as rows, with the plan, when the sign-in runs
+  out, the last summary, the last error and arrows for the order. New notices say when a sign-in
+  stopped working, when a plan hit its limit (and who summarizes meanwhile), and when screenshots
+  have waited more than an hour; each links its troubleshooting section. `scripts/setup.sh`
+  no longer warns about a missing Gemini key when `claude` or `codex` is signed in.
 - **Google Calendar setup starts with Copy setup prompt.** It copies a prompt for Claude Code
   or Codex that sets up the Google Cloud project, API, consent screen and OAuth client in your
   browser, stops for every sign-in or confirmation, and ends by telling you the two values to

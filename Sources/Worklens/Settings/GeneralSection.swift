@@ -303,6 +303,10 @@ struct SettingsStatusLine: View {
         ) {
             Button(remedyLabel(need.remedy)) { model.performSettingsRemedy(need.remedy) }
                 .buttonStyle(.settings)
+            if let help = need.help {
+                Button(String(localized: "Learn more\u{2026}", comment: "Button")) { model.openTroubleshooting(help) }
+                    .buttonStyle(.settingsMutedLink)
+            }
             if let id = need.noticeID {
                 Button(String(localized: "Dismiss", comment: "Button")) { model.dismissNotice(id) }
                     .buttonStyle(.settingsMutedLink)

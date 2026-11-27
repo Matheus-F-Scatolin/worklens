@@ -169,7 +169,7 @@ checkout_env=1
 if (( LINK_CHECKOUT == 0 )) && [[ ! -f "$REPO/.env" ]]; then
   checkout_env=0
   detail "no checkout .env — the app writes its own on first launch, and its welcome window"
-  detail "asks for the Gemini key"
+  detail "asks how Worklens summarizes your screenshots"
 elif [[ -f "$REPO/.env" ]]; then
   detail "$REPO/.env exists"
   # It holds the API key: owner-only, whatever mode an earlier copy or editor left it with.
@@ -188,13 +188,59 @@ for key in GEMINI_API_KEY; do
   value="$(grep -E "^${key}=" "$REPO/.env" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
   [[ -n "$value" ]] || missing+=("$key")
 done
+
+# A Claude or ChatGPT plan summarizes without a key, through the person's own `claude` or `codex`
+# command. Asked only whether each is signed in: `claude auth status --json` and `codex login
+# status`. This script never runs `claude auth login` or `codex login`, never reads a keychain
+# item or a credential file, and prints only "signed in" or not, never the commands' output.
+# The same folders the app looks in, since a GUI app's PATH is nearly empty.
+find_tool() {
+  local name="$1" dir
+  for dir in "$HOME/.local/bin" /opt/homebrew/bin /usr/local/bin "$HOME/.npm-global/bin"; do
+    [[ -x "$dir/$name" ]] && { echo "$dir/$name"; return 0; }
+  done
+  command -v "$name" 2>/dev/null || true
+}
+plan_signed_in=0
+plan_lines=()
+claude_bin="$(find_tool claude)"
+if [[ -n "$claude_bin" ]]; then
+  # Kept in a variable, never printed: it also names the account.
+  claude_status="$("$claude_bin" auth status --json 2>/dev/null | tr -d ' \n' || true)"
+  if [[ "$claude_status" == *'"loggedIn":true'* && "$claude_status" == *'"authMethod":"claude.ai"'* ]]; then
+    plan_signed_in=1
+    plan_lines+=("claude: found, signed in with a Claude plan")
+  else
+    plan_lines+=("claude: found, not signed in with a Claude plan ('claude auth login' in Terminal)")
+  fi
+else
+  plan_lines+=("claude: not found")
+fi
+codex_bin="$(find_tool codex)"
+if [[ -n "$codex_bin" ]]; then
+  codex_status="$("$codex_bin" login status 2>&1 | tr '[:upper:]' '[:lower:]' || true)"
+  if [[ "$codex_status" == *'logged in using chatgpt'* ]]; then
+    plan_signed_in=1
+    plan_lines+=("codex: found, signed in with a ChatGPT plan")
+  else
+    plan_lines+=("codex: found, not signed in with a ChatGPT plan ('codex login' in Terminal)")
+  fi
+else
+  plan_lines+=("codex: not found")
+fi
+for line in "${plan_lines[@]}"; do detail "$line"; done
+
 if (( ! checkout_env )); then
   :
+elif (( ${#missing[@]} )) && (( plan_signed_in )); then
+  detail "GEMINI_API_KEY is not set, and does not need to be: press Connect on the plan in the"
+  detail "welcome window and it summarizes your screenshots."
 elif (( ${#missing[@]} )); then
   detail "not set yet: ${missing[*]}"
-  detail "paste it into the welcome window when Worklens opens — or into $REPO/.env, if you"
-  detail "point the app at this checkout in step 5."
-  detail "Worklens captures without it; it just describes nothing until it is there, and the"
+  detail "connect a way to summarize in the welcome window when Worklens opens: a Claude or"
+  detail "ChatGPT plan you sign in to yourself, or a Gemini key (or put the key in"
+  detail "$REPO/.env, if you point the app at this checkout in step 5)."
+  detail "Worklens captures without one; it just summarizes nothing until one is there, and the"
   detail "menu says so. Setup carries on."
 else
   detail "GEMINI_API_KEY is set (this script never reads its value)"
@@ -360,8 +406,12 @@ cat <<EOF
     1. Allow Screen Recording when macOS asks, then choose Relaunch Worklens. macOS only hands
        the answer to a copy that starts afterwards, and a grant you gave a terminal does not
        count for the app.
-    2. Paste your Gemini key. Get one at https://aistudio.google.com/apikey, on a paid,
-       billing-enabled project. Or look around the sample week first, no key needed.
+    2. Connect a way to summarize your screenshots. Any one is enough:
+       - your Claude plan: run 'claude auth login' in Terminal yourself, then press Connect;
+       - your ChatGPT plan: run 'codex login' in Terminal yourself, then press Connect;
+       - a Gemini key: get one at https://aistudio.google.com/apikey, on a paid,
+         billing-enabled project, and paste it in.
+       Or look around the sample week first, nothing to connect.
 
     Closed the window? Finish setting up Worklens, in the menu, brings it back.
 EOF

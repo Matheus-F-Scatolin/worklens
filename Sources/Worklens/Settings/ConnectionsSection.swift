@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import WorklensCore
 
-/// Settings → Connections (#286): the AI provider, Claude and Codex as clients of Worklens,
+/// Settings → Connections (#286): the ways of summarizing, Claude and Codex as clients of Worklens,
 /// and the context sources — Granola and Google Calendar since #285.
 ///
 /// From the old window: `AccountsSection` (the keys, never shown masked here), the Claude pane's
@@ -25,9 +25,18 @@ struct ConnectionsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 30) {
-            SettingsGroup(String(localized: "AI providers", comment: "Settings group")) {
-                ForEach(model.accountRows, id: \.provider) { row in
-                    ProviderRow(model: model, row: row)
+            SettingsGroup(
+                String(localized: "Summaries", comment: "Settings group"),
+                note: String(localized: "How each screenshot gets its one-line summary. Worklens tries the connected ones in this order.", comment: "Settings note")
+            ) {
+                ForEach(model.summaryRowOrder, id: \.self) { provider in
+                    if provider.tool == nil {
+                        if let row = model.accountRows.first(where: { $0.provider == .gemini }) {
+                            ProviderRow(model: model, row: row)
+                        }
+                    } else {
+                        SubscriptionRow(model: model, provider: provider)
+                    }
                 }
             }
             .settingsAnchor(.providers, model: model, cornerRadius: ReaderTheme.Radius.field)
@@ -45,7 +54,13 @@ struct ConnectionsSection: View {
             SourcesGroup(model: model, integrations: integrations)
                 .settingsAnchor(.sources, model: model, cornerRadius: ReaderTheme.Radius.field)
         }
-        .task { await integrations.refresh() }
+        .task {
+            model.refreshSubscriptionStatuses()
+            await integrations.refresh()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.refreshSubscriptionStatuses()
+        }
         .onChange(of: model.configGeneration) { _, _ in
             Task { await integrations.refresh() }
         }
@@ -93,10 +108,151 @@ struct ConnectionGlyph: View {
     }
 }
 
-// MARK: - AI providers
+// MARK: - Summaries
+
+/// The up and down arrows beside a connected provider: the order Worklens tries them in. Shown
+/// only when two or more are listed, and only on a listed row.
+private struct SummaryOrderArrows: View {
+    @ObservedObject var model: AppModel
+    let provider: SummaryProvider
+
+    var body: some View {
+        let listed = SummaryProviders.listed(model.config)
+        if listed.count > 1, let index = listed.firstIndex(of: provider) {
+            let name = SummaryConnection.name(provider)
+            Button { model.moveSummaryProvider(provider, by: -1) } label: {
+                Image(systemName: "chevron.up")
+            }
+            .buttonStyle(.settingsLink)
+            .disabled(index == 0)
+            .help(String(localized: "Try earlier", comment: "Tooltip"))
+            .accessibilityLabel(L10n.format("Move %@ up", name))
+            Button { model.moveSummaryProvider(provider, by: 1) } label: {
+                Image(systemName: "chevron.down")
+            }
+            .buttonStyle(.settingsLink)
+            .disabled(index == listed.count - 1)
+            .help(String(localized: "Try later", comment: "Tooltip"))
+            .accessibilityLabel(L10n.format("Move %@ down", name))
+        }
+    }
+}
+
+/// The plan, when the sign-in runs out, when this provider last summarized, or what went wrong
+/// the last time, most important first.
+@MainActor
+private func summaryRowNote(_ model: AppModel, _ connection: SummaryConnection) -> SettingsRowNote? {
+    if let problem = model.summaryRowProblem(connection.provider) {
+        return SettingsRowNote(text: problem.text, tone: .attention)
+    }
+    let lines = [
+        connection.expiryLine(timeZone: .autoupdatingCurrent, locale: .autoupdatingCurrent),
+        SummaryConnection.lastSummaryLine(
+            model.lastSummaryByProvider[connection.provider.rawValue],
+            timeZone: .autoupdatingCurrent, locale: .autoupdatingCurrent
+        ),
+    ].compactMap { $0 }
+    return lines.isEmpty ? nil : SettingsRowNote(text: lines.joined(separator: " \u{00B7} "))
+}
+
+/// Claude or ChatGPT through the command on this Mac. Connect asks the command whether it is
+/// signed in with a plan and adds it to `SUMMARY_PROVIDERS`; Disconnect takes it out again and
+/// leaves the command signed in. The sign-in itself is the person's, in Terminal.
+private struct SubscriptionRow: View {
+    @ObservedObject var model: AppModel
+    let provider: SummaryProvider
+    @State private var connecting = false
+    @State private var copied = false
+
+    private var connection: SummaryConnection {
+        SummaryConnection.make(
+            provider, config: model.config, status: provider.tool.flatMap { model.subscriptionStatuses[$0] }
+        )
+    }
+
+    var body: some View {
+        let connection = connection
+        SettingsRow(
+            connection.title,
+            detail: connection.stateLine,
+            note: summaryRowNote(model, connection),
+            leading: { ConnectionGlyph(brand: provider == .claude ? .claude : .openAI) }
+        ) {
+            if connecting { ProgressView().controlSize(.small) }
+            if let help = model.summaryRowProblem(provider)?.help {
+                Button(String(localized: "Learn more\u{2026}", comment: "Button")) {
+                    model.openTroubleshooting(help)
+                }
+                .buttonStyle(.settingsMutedLink)
+            }
+            switch connection.state {
+            case .connected:
+                SettingsPill(text: String(localized: "Connected", comment: "Pill"))
+                SummaryOrderArrows(model: model, provider: provider)
+                Button(String(localized: "Disconnect", comment: "Button")) {
+                    model.disconnectSummaryProvider(provider)
+                }
+                .buttonStyle(.settingsMutedLink)
+            case .ready:
+                SettingsPill(text: String(localized: "Not connected", comment: "Pill"), kind: .off)
+                Button(String(localized: "Connect", comment: "Button"), action: connect)
+                    .buttonStyle(.settingsPrimary)
+                    .disabled(connecting)
+            case .signedOut, .notSubscription:
+                SettingsPill(text: String(localized: "Signed out", comment: "Pill"), kind: .need)
+                if let command = connection.loginCommand {
+                    Button(copied
+                        ? String(localized: "Copied", comment: "Button")
+                        : String(localized: "Copy sign-in command", comment: "Button")) {
+                        model.copySignInCommand(command)
+                        copied = true
+                    }
+                    .buttonStyle(.settings)
+                    .help(command)
+                }
+                Button(String(localized: "Check again", comment: "Button")) { model.refreshSubscriptionStatuses() }
+                    .buttonStyle(.settingsLink)
+                if connection.listed {
+                    SummaryOrderArrows(model: model, provider: provider)
+                    Button(String(localized: "Disconnect", comment: "Button")) {
+                        model.disconnectSummaryProvider(provider)
+                    }
+                    .buttonStyle(.settingsMutedLink)
+                }
+            case .notInstalled:
+                SettingsPill(text: String(localized: "Not installed", comment: "Pill"), kind: .off)
+                if let install = SetupLinks.install(provider) {
+                    Link(
+                        provider == .claude ? SetupCopy.installClaudeLabel : SetupCopy.installCodexLabel,
+                        destination: install
+                    )
+                    .font(ReaderTheme.Size.control)
+                    .foregroundStyle(ReaderTheme.accentInk)
+                }
+                if connection.listed {
+                    Button(String(localized: "Disconnect", comment: "Button")) {
+                        model.disconnectSummaryProvider(provider)
+                    }
+                    .buttonStyle(.settingsMutedLink)
+                }
+            case .checking, .needsKey:
+                ProgressView().controlSize(.small)
+            }
+        }
+    }
+
+    private func connect() {
+        connecting = true
+        Task {
+            await model.connectSummaryProvider(provider)
+            connecting = false
+        }
+    }
+}
 
 /// Gemini: a pill, and Change — an inline secure field with Save, Cancel and Disconnect. The
-/// key itself is never drawn, masked or not. The Claude row went with the reports (2026-10-05).
+/// key itself is never drawn, masked or not. Saving a key beside a connected plan adds Gemini
+/// to the order; Disconnect forgets the key and takes it out.
 private struct ProviderRow: View {
     @ObservedObject var model: AppModel
     let row: AccountRow
@@ -109,12 +265,11 @@ private struct ProviderRow: View {
     private var name: String { "Gemini" }
 
     var body: some View {
+        let connection = SummaryConnection.make(.gemini, config: model.config, status: nil)
         SettingsRow(
-            name,
-            detail: row.isSet
-                ? String(localized: "Summarizes each screenshot in one sentence.", comment: "Setting detail")
-                : String(localized: "Screenshots wait until Gemini is connected.", comment: "Setting detail"),
-            note: note,
+            connection.title,
+            detail: row.isSet ? connection.stateLine : connection.subtitle,
+            note: note ?? summaryRowNote(model, connection),
             leading: { ConnectionGlyph(brand: .gemini) }
         ) {
             if editing {
@@ -137,7 +292,17 @@ private struct ProviderRow: View {
                 if verifying {
                     ProgressView().controlSize(.small)
                 }
-                SettingsPill(text: String(localized: "Connected", comment: "Pill"))
+                if connection.isConnected {
+                    SettingsPill(text: String(localized: "Connected", comment: "Pill"))
+                    SummaryOrderArrows(model: model, provider: .gemini)
+                } else {
+                    // A key that is saved but not in the order: one press puts it there.
+                    SettingsPill(text: String(localized: "Not connected", comment: "Pill"), kind: .off)
+                    Button(String(localized: "Connect", comment: "Button")) {
+                        Task { await model.connectSummaryProvider(.gemini) }
+                    }
+                    .buttonStyle(.settingsPrimary)
+                }
                 if row.isEditable {
                     Button(String(localized: "Change", comment: "Button"), action: begin)
                         .buttonStyle(.settingsLink)

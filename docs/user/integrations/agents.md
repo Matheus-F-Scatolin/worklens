@@ -22,6 +22,10 @@ The ledger fills on the next context sync (every `CONTEXT_SYNC_MINUTES`), or now
 `worklens agents sync --days 30`. The first read looks back 30 days and reads at most 256 MB a
 round; every later one reads only what the logs gained since.
 
+Worklens's own summary calls, when you summarize with a Claude or ChatGPT plan, run with
+`--no-session-persistence` (`claude`) and `--ephemeral` (`codex exec`), so they write no session
+log and never show up here as an agent's minutes.
+
 ## What counts as a prompt
 
 A prompt is something you typed. A task notification, a message from another agent, a tool's
@@ -54,7 +58,7 @@ nothing from it until a Worklens that understands it.
 | | |
 |---|---|
 | Stored | per session: the tool, where it ran (app or terminal), the folder, the repo and branch, its first and last instant and how many file edits it made; the instant of each prompt; the start and end of each agent turn; the PR links. Never a prompt's text, a command, a tool's output, a file's contents or a session's title |
-| Sent to a model | nothing. No Gemini call reads it; an MCP client you connect reads the repo names, branches and minutes when it calls `agent_sessions` or `shipped` |
+| Sent to a model | nothing. No summary call reads it; an MCP client you connect reads the repo names, branches and minutes when it calls `agent_sessions` or `shipped` |
 | Sent anywhere | nothing. It reads files on this Mac, runs no git command and makes no network call |
 | Kept | like your captures: a retention pass and a date-range delete remove the prompts and turns they cover, and a later read does not bring them back |
 | To turn it off | `AGENT_SESSIONS=false` stops reading and deletes the ledger. `worklens agents forget` deletes it once; with the key still on, the next sync reads it again |

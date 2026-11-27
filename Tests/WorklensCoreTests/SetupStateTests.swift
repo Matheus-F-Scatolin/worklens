@@ -12,7 +12,7 @@ struct GeminiOnlySetupTests {
     private var geminiOnly: SetupProgress {
         SetupProgress(
             screenRecording: true,
-            geminiKey: true,
+            summaries: true,
             onboardedAt: now
         )
     }
@@ -38,7 +38,7 @@ struct GeminiOnlySetupTests {
     /// Recording and pasted a Gemini key is two thirds of the way through, not half.
     @Test("the counter counts three steps")
     func counter() {
-        let midway = SetupProgress(screenRecording: true, geminiKey: true)
+        let midway = SetupProgress(screenRecording: true, summaries: true)
         #expect(midway.menuLine == "Finish setting up Worklens (2 of 3)")
         #expect(midway.remaining == [.welcome])
     }
@@ -66,7 +66,7 @@ struct SetupPageOrderTests {
         #expect(SetupPage.appearance.previous == nil)
         #expect(SetupPage.appearance.next == .privacy)
         #expect(SetupPage.appearance.title == "Light or dark")
-        #expect(SetupStep.allCases == [.screenRecording, .geminiKey, .welcome])
+        #expect(SetupStep.allCases == [.screenRecording, .summaries, .welcome])
         for raw in ["privacy", "tour", "screenRecording", "keys", "ready", "appearance"] {
             #expect(SetupPage.stored(raw)?.rawValue == raw)
         }
@@ -81,8 +81,8 @@ struct SetupPageOrderTests {
         #expect(SetupPage.tour.next == .screenRecording)
         #expect(SetupPage.screenRecording.previous == .tour)
         #expect(SetupPage.tour.title == "See a sample week")
-        #expect(SetupStep.allCases == [.screenRecording, .geminiKey, .welcome])
-        let started = SetupProgress(screenRecording: false, geminiKey: false)
+        #expect(SetupStep.allCases == [.screenRecording, .summaries, .welcome])
+        let started = SetupProgress(screenRecording: false, summaries: false)
         #expect(started.menuLine == "Finish setting up Worklens (0 of 3)")
     }
 

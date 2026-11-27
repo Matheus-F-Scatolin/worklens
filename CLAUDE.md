@@ -56,6 +56,9 @@ CONTRIBUTING.md and the rest of this file.
 
 - Never ask for, echo or paste an API key in chat. The Gemini key goes into the welcome window
   (or Settings → Connections) by the person's own hand, never through you.
+- Never run `claude auth login` or `codex login` for the person, and never read their
+  credentials (keychain items, `~/.claude`, `~/.codex` or any token file). Signing in is their own
+  step in Terminal; at most, say which command to run.
 - Never write a real key into any `.env`, and do not edit `.env` files at all for an install.
 - Never grant a permission, answer a macOS dialog or click anything in System Settings for the
   person: Screen Recording, Accessibility, Automation, the keychain and the certificate trust
@@ -69,8 +72,11 @@ CONTRIBUTING.md and the rest of this file.
 **The person's own steps**, which you name and leave to them:
 
 - Allowing **Screen Recording** when macOS asks, then **Relaunch Worklens** in the welcome window.
-- Creating a Gemini key at <https://aistudio.google.com/apikey> on a paid, billing-enabled project
-  and pasting it into the welcome window. Or looking around the sample week first: it needs no key.
+- Connecting one way to summarize screenshots on the welcome window's *How Worklens summarizes*
+  page; any one is enough, in this order: their Claude plan (they run `claude auth login` in
+  Terminal themselves, then press **Connect**), their ChatGPT plan (`codex login`, then
+  **Connect**), or a Gemini key created at <https://aistudio.google.com/apikey> on a paid,
+  billing-enabled project and pasted in. Or looking around the sample week first: it needs none.
 - Optionally, adding Worklens to Claude Desktop: quit Claude Desktop first (while it is open it
   puts its old settings back), then **Connect** on the welcome window's last page, then open
   Claude Desktop again. If this session runs inside Claude Desktop, quitting it ends the session,

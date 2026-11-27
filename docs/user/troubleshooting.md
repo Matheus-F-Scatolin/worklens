@@ -8,6 +8,10 @@ Every symptom this page has an answer for, with the section that answers it:
 | I cannot find the menu-bar icon | the menu bar is full, or an item hider has it | [I cannot find the menu-bar icon](#i-cannot-find-the-menu-bar-icon) |
 | Nothing is being captured at all | Screen Recording was lost or never granted | [nothing is being captured](#nothing-is-being-captured) |
 | Frames are captured but none are described | no Gemini key, over budget, or the queue is behind | [frames pile up](#frames-pile-up-as-pending-or-over-budget) |
+| The menu says nothing is set up to summarize | no plan connected and no Gemini key | [nothing is set up](#nothing-is-set-up-to-summarize-your-screenshots) |
+| The menu says your Claude or ChatGPT sign-in stopped working | `claude` or `codex` is signed out | [sign-in stopped](#your-claude-or-chatgpt-sign-in-stopped-working) |
+| The menu says your plan hit its limit | the plan's usage limit, until it resets | [plan limit](#your-plan-hit-its-limit) |
+| The menu says screenshots are waiting to be summarized | more than an hour's backlog | [screenshots waiting](#screenshots-are-waiting-to-be-summarized) |
 | Today's counts reset after a `make run` | a different `DATA_DIR` layer won | [today's counts reset](#todays-counts-reset-after-a-make-run) |
 | The timeline says "Chrome" but never which page | the per-browser Automation grant | [only the browser, never the page](#the-timeline-says-chrome-but-never-which-page) |
 | macOS asks for a permission again after a rebuild | the signature changed | [asked again after a rebuild](#macos-asks-for-a-permission-again-after-a-rebuild) |
@@ -32,8 +36,8 @@ grants you would then have to approve a second time.
 The menu says what is wrong as it happens: a missing permission, a key that stopped working, a
 describe queue that is behind. Settings → Capture has the permission rows, which are the only
 place that can answer for `Worklens.app` itself — macOS reports a permission only to the process
-that asks, so a terminal gets the terminal's grants. Settings → Connections shows whether each key
-and each assistant works, and **Verify** asks the provider about a key. `worklens config-dump`
+that asks, so a terminal gets the terminal's grants. Settings → Connections shows whether each way
+of summarizing and each assistant works, and **Verify** asks the provider about a key. `worklens config-dump`
 prints every setting and the file it came from.
 
 ## Nothing is being captured
@@ -56,8 +60,44 @@ the same button in Settings → Usage) and those frames go back in the queue
 ([cost.md](cost.md#the-hard-stop)). Raising `DAILY_BUDGET_USD` itself only lifts the stop for
 what comes next; the frames already skipped today are requeued by the button alone.
 
-If the menu says **GEMINI_API_KEY is not set**, frames are being captured and kept but nothing is
-describing them; [setup.md](setup.md#keys) says where the key comes from.
+If the menu says **Nothing is set up to summarize your screenshots**, frames are being captured
+and kept but nothing is summarizing them; [the next section](#nothing-is-set-up-to-summarize-your-screenshots)
+says what to connect.
+
+## Nothing is set up to summarize your screenshots
+
+No Claude or ChatGPT plan is connected and no Gemini key is saved, so screenshots are kept but
+not summarized. **Open Connections…** on the notice goes to Settings → Connections →
+**Summaries**: connect any one of the three, and the screenshots already kept are summarized
+then. [setup.md](setup.md#summaries) compares them.
+
+## Your Claude or ChatGPT sign-in stopped working
+
+`claude` or `codex` answered that it is not signed in, or is signed in with an API key rather
+than your plan. Run the command the notice names in Terminal yourself (`claude auth login` or
+`codex login`); Worklens never runs it. If another way is connected, it summarizes meanwhile and
+the notice says which. Worklens asks the command again every few minutes and whenever Settings
+or the welcome window comes forward, and moves the summaries back as soon as it is signed in.
+`worklens summaries check` prints what each command says.
+
+When `claude auth status` says when the sign-in runs out, Settings → Connections shows that
+date under the Claude row.
+
+## Your plan hit its limit
+
+Summaries count against your Claude or ChatGPT plan's usage limits, the same limits your own use
+of Claude or ChatGPT does. When the command says the limit is reached, Worklens stops asking it
+until the reset time the command gave (or for a quarter of an hour, when it gave none). Another
+connected way summarizes meanwhile; with none, screenshots wait and are summarized after the
+reset. Nothing is lost. To have a fallback, connect a second way in Settings → Connections.
+
+## Screenshots are waiting to be summarized
+
+More than a hundred screenshots older than an hour are still waiting. Screenshots that are only
+waiting for the next turn are not counted: a backlog this size means summarizing has been
+stopped for a while. Settings → Connections → **Summaries** shows each way's last summary and its
+last error, which is usually the reason: a sign-in that stopped working or a plan at its limit.
+`worklens describe-pending` summarizes the backlog from a terminal.
 
 ## The menu says the data directory is in a synced folder
 

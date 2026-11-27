@@ -142,14 +142,16 @@ struct UserDocsTests {
     /// user to read something that is not there.
     @Test("the missing-key notice points at a page that exists, at a heading that exists")
     func missingKeyNoticeNamesTheSetupPage() throws {
-        let message = SetupIssue.noGeminiKey.message
-        #expect(message.contains("docs/user/setup.md#keys"))
+        let message = SetupIssue.noSummarizer.message
+        #expect(message.contains("docs/user/setup.md#summaries"))
 
         let setup = Self.repoRoot.appendingPathComponent("docs/user/setup.md")
         let text = try String(contentsOf: setup, encoding: .utf8)
-        #expect(Self.anchors(in: text).contains("keys"))
-        // The key URL lives on that page; the issue asked for it by name.
+        #expect(Self.anchors(in: text).contains("summaries"))
+        // The three ways are on that page: the key URL, and both sign-in commands.
         #expect(text.contains("aistudio.google.com/apikey"))
+        #expect(text.contains("claude auth login"))
+        #expect(text.contains("codex login"))
     }
 
     /// #127's deliverable was a README aimed at someone who wants to *use* Worklens. The word
