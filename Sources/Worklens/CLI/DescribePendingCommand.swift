@@ -12,23 +12,30 @@ struct DescribeStack {
 
     /// - Parameter fake: #121's offline describer. Only ever true because someone typed
     ///   `--fake`; no configuration key selects it.
-    init(requireKey: Bool, fake: Bool = false) throws {
+    /// - Parameter provider: `--provider`, one summarizer instead of the configured chain.
+    init(requireKey: Bool, fake: Bool = false, provider: SummaryProvider? = nil) throws {
         config = try CLIConfig.load()
-        if requireKey, !fake, (config.geminiAPIKey ?? "").isEmpty {
+        let built = fake ? FakeDescriber() : SummaryProviders.describer(config: config, only: provider)
+        if requireKey, built == nil {
             // Exit 4 and one line, not a usage block: nothing about the command line is wrong.
+            if provider == .gemini || (provider == nil && config.summaryProviders.isEmpty) {
+                throw CLIFailure.config(
+                    "GEMINI_API_KEY is not set. Put it in .env (a billing-enabled project: on the "
+                        + "free tier Google may train on your screenshots). docs/user/setup.md#keys "
+                        + "says where to get one."
+                )
+            }
             throw CLIFailure.config(
-                "GEMINI_API_KEY is not set. Put it in .env (a billing-enabled project: on the "
-                    + "free tier Google may train on your screenshots). docs/user/setup.md#keys "
-                    + "says where to get one."
+                "Nothing is set up to summarize screenshots. `worklens summaries check` says what "
+                    + "Claude Code, Codex and Gemini each need."
             )
         }
         db = try Database(dataDir: config.dataDir)
         taxonomy = try TaxonomyStore(dataDir: config.dataDir)
         let timeline = TimelineWriter(config: config, db: db, taxonomy: taxonomy)
         self.timeline = timeline
-        let describer: any VisionDescriber = fake
-            ? FakeDescriber()
-            : GeminiClient(apiKey: config.geminiAPIKey ?? "", model: config.describeModel)
+        let describer: any VisionDescriber = built
+            ?? GeminiClient(apiKey: config.geminiAPIKey ?? "", model: config.describeModel)
         worker = DescribeWorker(
             config: config,
             db: db,
@@ -41,6 +48,56 @@ struct DescribeStack {
             // Each described frame redraws its day, exactly as the app will.
             onDescribed: { day in await timeline.nudge(day: day) }
         )
+    }
+
+    /// What `--dry-run` prints for a subscription summarizer: the command line and what goes on
+    /// stdin, with the screenshot itself shown as its size. Nil for Gemini, whose request is the
+    /// prompt and schema printed above it.
+    static func commandPreview(
+        _ request: DescribeRequest, provider: SummaryProvider, config: Config
+    ) -> String? {
+        switch provider {
+        case .gemini:
+            return nil
+        case .claude:
+            let arguments = ClaudeDescriber.arguments(
+                model: config.claudeSummaryModel,
+                systemInstruction: request.systemInstruction,
+                schema: request.schema
+            )
+            var stdin = String(decoding: ClaudeDescriber.stdin(for: request), as: UTF8.self)
+            if let jpeg = request.imageJPEG {
+                stdin = stdin.replacingOccurrences(
+                    of: jpeg.base64EncodedString(), with: "<\(jpeg.count) bytes of JPEG, base64>"
+                )
+            }
+            return "--- command ---\n" + shellLine(["claude"] + arguments)
+                + "\n\n--- stdin ---\n" + stdin
+        case .codex:
+            let workspace = SubscriptionWorkspace(dataDir: config.dataDir)
+            let arguments = CodexDescriber.arguments(
+                model: "<newest gpt-*-\(config.codexSummaryModel)>",
+                systemInstruction: request.systemInstruction,
+                imageFile: request.imageFile
+                    ?? workspace.temporaryDirectory.appendingPathComponent("<screenshot>.jpg"),
+                schemaFile: workspace.temporaryDirectory.appendingPathComponent("<schema>.json"),
+                workingDirectory: workspace.emptyDirectory
+            )
+            return "--- command ---\n" + shellLine(["codex"] + arguments)
+                + "\n\n--- stdin ---\n" + request.userPrompt
+                + "\n\n--- <schema>.json ---\n"
+                + DescribePrompt.prettyJSON(CodexDescriber.strictSchema(request.schema))
+        }
+    }
+
+    /// Arguments quoted the way a shell would need them, so the line can be read, not run.
+    static func shellLine(_ arguments: [String]) -> String {
+        arguments.map { argument in
+            guard argument.isEmpty || argument.contains(where: { " \"'$\\\n{}[]*?;&|<>()`".contains($0) }) else {
+                return argument
+            }
+            return "'" + argument.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        }.joined(separator: " ")
     }
 
     /// Runs the debounced timeline rebuild now, which a short-lived CLI process would
@@ -110,8 +167,11 @@ struct DescribePendingCommand: AsyncParsableCommand {
         """)
     var fake = false
 
+    @Option(help: "Summarize with this one summarizer instead of SUMMARY_PROVIDERS: claude, codex or gemini.")
+    var provider: SummaryProvider?
+
     func run() async throws {
-        let stack = try DescribeStack(requireKey: !dryRun, fake: fake)
+        let stack = try DescribeStack(requireKey: !dryRun, fake: fake, provider: provider)
         if fake { print("--fake: describing with the offline fake provider. \(FakeProvider.marker).\n") }
 
         if dryRun {
@@ -135,6 +195,12 @@ struct DescribePendingCommand: AsyncParsableCommand {
             print("")
             print("--- response schema ---")
             print(DescribePrompt.prettyJSON(prepared.request.schema))
+            if let chosen = provider ?? SummaryProviders.effective(stack.config).first,
+               let preview = DescribeStack.commandPreview(prepared.request, provider: chosen, config: stack.config) {
+                print("")
+                print("=== as sent to \(chosen.rawValue) ===")
+                print(preview)
+            }
             return
         }
 
@@ -153,10 +219,15 @@ struct DescribeOneCommand: AsyncParsableCommand {
     @Argument(help: "The captures.id to describe.")
     var captureID: String
 
+    @Option(help: "Summarize with this one summarizer instead of SUMMARY_PROVIDERS: claude, codex or gemini.")
+    var provider: SummaryProvider?
+
     func run() async throws {
-        let stack = try DescribeStack(requireKey: true)
+        let stack = try DescribeStack(requireKey: true, provider: provider)
         let outcome = try await stack.worker.processOne(captureId: captureID)
         await stack.flushTimeline()
         DescribeStack.report([outcome])
     }
 }
+
+extension SummaryProvider: ExpressibleByArgument {}

@@ -165,6 +165,7 @@ struct ConfigTests {
             "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
             "GOOGLE_TOKEN_STORE", "GITHUB_SHIPPED", "MEMO_REPOS", "AGENT_SESSIONS",
             "AUTO_UPDATE_ENABLED", "AUTO_UPDATE_POLL_MINUTES", "PAUSE_REMINDER_HOURS",
+            "SUMMARY_PROVIDERS", "CLAUDE_SUMMARY_MODEL", "CODEX_SUMMARY_MODEL",
         ]
         let keys = try Config.load(layers: [[:]], cwd: cwd).dumpLines.map(\.key)
         #expect(Set(keys) == Set(expected))
@@ -250,8 +251,8 @@ struct ConfigTests {
         // The keys around them still work, and the walk still spends the shipped budget.
         #expect(config.captureIdleSeconds == 45)
         #expect(AXWalkLimits().maxNodes == 400)
-        // Nothing retired can be asked for any more: `config-dump` prints 36 keys, none of them.
-        #expect(Config.knownKeys.count == 36)
+        // Nothing retired can be asked for any more: `config-dump` prints 39 keys, none of them.
+        #expect(Config.knownKeys.count == 39)
         #expect(Set(Config.knownKeys).isDisjoint(with: Config.retiredKeys))
     }
 

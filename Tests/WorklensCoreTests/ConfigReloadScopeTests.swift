@@ -4,6 +4,8 @@ import Testing
 
 /// A value for this key that is definitely not the one it has now.
 private func changedValue(for key: ConfigKey) -> String {
+    // A list of names Worklens knows; any other word is refused.
+    if key.name == "SUMMARY_PROVIDERS" { return "claude,gemini" }
     switch key.kind {
     case .int:
         return String((Int(key.defaultLiteral) ?? 10) + 5)

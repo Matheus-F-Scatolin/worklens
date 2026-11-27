@@ -139,6 +139,8 @@ public actor DescribeWorker {
     private var failedCycles = 0
     /// The last failure, by class. Never a response body.
     private var lastFailure: DescribeHealth.Failure?
+    /// The error behind `lastFailure`, so a ledger row names the link of a chain that failed.
+    private var lastError: Error?
     /// When the current queue-wide hold ends, so `.holding` can name the time.
     private var holdUntil: Date?
 
@@ -451,7 +453,7 @@ public actor DescribeWorker {
                 timeZone: timeZone,
                 language: config.reportLanguage,
                 projects: listedProjects()
-            )
+            ).withImageFile(prepared.request.imageFile)
             do {
                 response = try await callDescriber(repaired)
                 frame = try decode(response.json)
@@ -533,7 +535,7 @@ public actor DescribeWorker {
             timeZone: timeZone,
             language: config.reportLanguage,
             projects: listedProjects()
-        )
+        ).withImageFile(jpeg == nil ? nil : capture.imagePath.map { config.dataDir.appendingPathComponent($0) })
         return Prepared(
             capture: capture, resolved: resolved, request: request,
             redactions: prompt.redactions, input: prompt.input
@@ -605,7 +607,7 @@ public actor DescribeWorker {
             return .failed("the describe call failed", costUSD: 0)
         }
         try ledger.insert(LLMCall(
-            provider: describer.provider,
+            provider: response.provider ?? describer.provider,
             model: response.model,
             purpose: .describe,
             promptTokens: response.usage.promptTokens,
@@ -715,7 +717,7 @@ public actor DescribeWorker {
 
         let description = Description(
             captureId: capture.id,
-            provider: describer.provider,
+            provider: response.provider ?? describer.provider,
             model: response.model,
             appKey: frame.appKey,
             taskKey: frame.taskKey,
@@ -738,7 +740,7 @@ public actor DescribeWorker {
         try captures.markDescribed(id: capture.id, status: .described)
 
         try ledger.insert(LLMCall(
-            provider: describer.provider,
+            provider: response.provider ?? describer.provider,
             model: response.model,
             purpose: .describe,
             promptTokens: response.usage.promptTokens,
@@ -789,6 +791,7 @@ public actor DescribeWorker {
     /// A 429 or a 5xx is deliberately *not* here: the provider answered, and the client has
     /// already spent its own five retries on it.
     static func isUnreachable(_ error: Error) -> Bool {
+        if let failed = error as? DescriberChain.Failed { return isUnreachable(failed.underlying) }
         if let llmError = error as? LLMError, case .network = llmError { return true }
         return error is URLError
     }
@@ -799,9 +802,10 @@ public actor DescribeWorker {
         // The class of the failure, for the log and the menu. `message` keeps the provider's own
         // words for `llm_calls`, which is local; neither the log nor the menu ever sees them.
         let failure = describeError == nil
-            ? DescribeHealth.classify(error, provider: describer.provider)
-            : DescribeHealth.schemaFailure(provider: describer.provider)
+            ? DescribeHealth.classify(error, provider: DescriberChain.failedLink(error)?.provider ?? describer.provider)
+            : DescribeHealth.schemaFailure(provider: DescriberChain.failedLink(error)?.provider ?? describer.provider)
         lastFailure = failure
+        lastError = error
 
         // The provider answered and said no to the *caller*, not to this frame: a key it will not
         // accept, a quota that is spent. Nothing about the frame caused it and nothing about the
@@ -821,13 +825,13 @@ public actor DescribeWorker {
         // `describeError` non-nil means the *first* answer arrived and did not fit the schema,
         // which is real evidence about the frame; that still counts, even if the repair call was
         // the thing that could not reach the provider.
-        if describeError == nil, DescribeWorker.isUnreachable(error) {
+        if describeError == nil, DescribeWorker.isUnreachable(error) || failure.isUnreachable {
             return try await holdForOutage(
                 failure, message: message, httpStatus: llmError?.httpStatus
             )
         }
 
-        try await recordLedgerFailure(message: message, httpStatus: llmError?.httpStatus)
+        try await recordLedgerFailure(message: message, httpStatus: llmError?.httpStatus, error: error)
 
         let attempts = try queries.bumpAttempts(captureId: capture.id)
         if attempts >= DescribeWorker.maxAttempts {
@@ -856,7 +860,7 @@ public actor DescribeWorker {
         _ failure: DescribeHealth.Failure, message: String, httpStatus: Int?
     ) async throws -> Outcome {
         if networkOutages == 0 {
-            try await recordLedgerFailure(message: message, httpStatus: httpStatus)
+            try await recordLedgerFailure(message: message, httpStatus: httpStatus, error: lastError)
         }
         let delay = min(
             pow(2.0, Double(networkOutages)) * DescribeWorker.pollInterval,
@@ -881,7 +885,7 @@ public actor DescribeWorker {
         _ failure: DescribeHealth.Failure, message: String
     ) async throws -> Outcome {
         if providerRefusals == 0 {
-            try await recordLedgerFailure(message: message, httpStatus: failure.httpStatus)
+            try await recordLedgerFailure(message: message, httpStatus: failure.httpStatus, error: lastError)
         }
         let delay = min(
             pow(2.0, Double(providerRefusals)) * DescribeWorker.pollInterval,
@@ -902,10 +906,11 @@ public actor DescribeWorker {
         try appState.setDate(DescribeWorker.backoffKey, until)
     }
 
-    private func recordLedgerFailure(message: String, httpStatus: Int?) async throws {
+    private func recordLedgerFailure(message: String, httpStatus: Int?, error: Error? = nil) async throws {
+        let failed = error.flatMap(DescriberChain.failedLink)
         try ledger.insert(LLMCall(
-            provider: describer.provider,
-            model: config.describeModel,
+            provider: failed?.provider ?? describer.provider,
+            model: failed?.model ?? config.describeModel,
             purpose: .describe,
             costUsd: 0,
             httpStatus: httpStatus,

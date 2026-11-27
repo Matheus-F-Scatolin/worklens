@@ -848,6 +848,36 @@ behind Settings → Connections → **Verify** stayed and moved to `Config/KeyPr
 `make doctor-toolchain` and `scripts/doctor.sh` stayed. No table was dropped and no data file
 deleted: the `app_permissions` row in `app_state` is simply no longer written.
 
+## 2026-11-27: Summaries through a Claude or ChatGPT plan, tried in order
+
+Someone with a Claude or ChatGPT plan can summarize screenshots without a Gemini key: Worklens
+runs their own signed-in `claude` or `codex` command, one screenshot per call. `SUMMARY_PROVIDERS`
+lists which, in the order tried (any of `claude`, `codex`, `gemini`); the default offered is
+Claude, then Codex, then Gemini.
+
+- **Worklens never signs either command in and never reads its credentials.** It asks
+  `claude auth status --json` / `codex login status` and nothing else. Disconnecting takes the
+  name off the list; it never logs the command out.
+- **Each call is isolated**: no tools, no MCP servers, no user settings, hooks, skills, plugins or
+  memory, no saved session, an empty working directory, and a six-variable environment with no
+  API key, base URL or config folder. The prompt and image go on stdin. `--bare` would also drop
+  Claude Code's built-in plugins, but it turns the plan's sign-in off, so it is not used.
+- **An API-key sign-in is refused.** A command signed in with a key would bill per token, which
+  is the thing a plan is chosen to avoid.
+- **The chain skips an account failure for a while.** Not installed, signed out, a key refused
+  or no network skips that link for 15 minutes; a plan's limit until the reset time it names
+  (at most 7 days). A failure about the screenshot itself is not skipped, and when every link
+  fails it wins over account failures, so the frame's attempts are counted as before.
+- **An empty `SUMMARY_PROVIDERS` is Gemini alone**, and a lone Gemini is the same
+  `GeminiClient` as before, so an install that never sets the key is byte-for-byte unchanged.
+  A lone subscription still goes through the chain, for its skip memory.
+- **Codex models are families**, `sol` and `luna`; Terra and Astra are left out as the large
+  models. The slug is resolved from `codex debug models` once a day or when the command's
+  version changes, falling back to the last slug that answered, else to no `-m` at all.
+- **Project names stay out of argv.** The schema in Claude's arguments has the `project_key`
+  enum removed; Codex reads its schema from a 0600 file that is deleted after the call.
+- **Subscription calls are recorded at $0.** What a plan costs is not per call.
+
 ## Things only the user can do
 
 Settings → Connections checks the keys and the `claude_desktop_config.json` entry, and

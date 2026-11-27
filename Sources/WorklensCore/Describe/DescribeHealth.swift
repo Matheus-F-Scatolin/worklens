@@ -114,12 +114,86 @@ public enum DescribeHealth: Sendable, Equatable {
         public let isRefusal: Bool
         /// The provider was never reached.
         public let isUnreachable: Bool
+        /// What kind of failure, for the subscription summarizers whose fix is a step the person
+        /// takes in Terminal (install the command, sign in) or a wait (the plan's limit).
+        public let kind: Kind
 
-        public init(reason: String, httpStatus: Int?, isRefusal: Bool, isUnreachable: Bool) {
+        public enum Kind: Sendable, Equatable {
+            case general
+            case notInstalled
+            case signedOut
+            case notSubscription
+            case usageLimit(resetsAt: Date?)
+            case timedOut
+        }
+
+        public init(
+            reason: String, httpStatus: Int?, isRefusal: Bool, isUnreachable: Bool, kind: Kind = .general
+        ) {
             self.reason = reason
             self.httpStatus = httpStatus
             self.isRefusal = isRefusal
             self.isUnreachable = isUnreachable
+            self.kind = kind
+        }
+    }
+
+    /// The command's name as the person knows it, for the subscription summarizers.
+    public static func commandName(_ tool: SubscriptionTool) -> String {
+        switch tool {
+        case .claude: "Claude Code"
+        case .codex: "Codex"
+        }
+    }
+
+    /// The plan's name as the person knows it.
+    public static func planName(_ tool: SubscriptionTool) -> String {
+        switch tool {
+        case .claude: "Claude"
+        case .codex: "ChatGPT"
+        }
+    }
+
+    /// A subscription summarizer's failure. Every kind but a plain exit status is about the
+    /// account rather than the screenshot, so the frame keeps its attempts and stays pending.
+    static func classify(_ error: SubscriptionError) -> Failure {
+        let command = commandName(error.tool)
+        switch error {
+        case .notInstalled:
+            return Failure(
+                reason: "\(command) is not installed", httpStatus: nil,
+                isRefusal: true, isUnreachable: false, kind: .notInstalled
+            )
+        case .signedOut:
+            return Failure(
+                reason: "\(command) is not signed in", httpStatus: nil,
+                isRefusal: true, isUnreachable: false, kind: .signedOut
+            )
+        case .notSubscription:
+            return Failure(
+                reason: "\(command) is signed in with an API key, not a \(planName(error.tool)) plan",
+                httpStatus: nil, isRefusal: true, isUnreachable: false, kind: .notSubscription
+            )
+        case let .usageLimit(_, resetsAt):
+            return Failure(
+                reason: "your \(planName(error.tool)) plan's usage limit is reached", httpStatus: nil,
+                isRefusal: true, isUnreachable: false, kind: .usageLimit(resetsAt: resetsAt)
+            )
+        case .timedOut:
+            return Failure(
+                reason: "\(command) did not answer in time", httpStatus: nil,
+                isRefusal: false, isUnreachable: true, kind: .timedOut
+            )
+        case .unreachable:
+            return Failure(
+                reason: "\(command) could not reach its service", httpStatus: nil,
+                isRefusal: false, isUnreachable: true
+            )
+        case .failed:
+            return Failure(
+                reason: "\(command) stopped with an error", httpStatus: nil,
+                isRefusal: false, isUnreachable: false
+            )
         }
     }
 
@@ -141,6 +215,12 @@ public enum DescribeHealth: Sendable, Equatable {
     /// What went wrong, in the words the user reads. Never quotes the response body: a 400 body
     /// is matched for Gemini's `API_KEY_INVALID` marker and then thrown away.
     public static func classify(_ error: Error, provider: String) -> Failure {
+        if let failed = error as? DescriberChain.Failed {
+            return classify(failed.underlying, provider: failed.provider)
+        }
+        if let subscription = error as? SubscriptionError {
+            return classify(subscription)
+        }
         let name = providerName(provider)
         guard let llm = error as? LLMError else {
             if error is URLError {

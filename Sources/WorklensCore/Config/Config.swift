@@ -433,6 +433,13 @@ public struct Config: Sendable, Equatable {
     /// Settings would make the prompt — and every test that pins its bytes — depend on the
     /// machine. See `ReportLanguage`.
     public var reportLanguage: String = ReportLanguage.english
+    /// `SUMMARY_PROVIDERS`: the summarizers, in the order they are tried. Empty is Gemini alone
+    /// when its key is set (`SummaryProviders.effective`).
+    public var summaryProviders: [SummaryProvider] = []
+    /// `CLAUDE_SUMMARY_MODEL`: `sonnet` or `haiku`.
+    public var claudeSummaryModel: String = "sonnet"
+    /// `CODEX_SUMMARY_MODEL`: the family, `sol` or `luna`.
+    public var codexSummaryModel: String = "sol"
 
     // Capture
     public var captureIntervalSeconds: Int

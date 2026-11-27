@@ -579,7 +579,9 @@ final class AppModel: ObservableObject {
             // again (#125) and the frames a rejected key marked `failed` — which nothing else
             // ever un-marks — go back to `pending` so the corrected key can describe them.
             state.describeHealth = .ok
-            if let key = config.geminiAPIKey, !key.isEmpty {
+            // SUMMARY_PROVIDERS: Claude, Codex and Gemini in the person's order, or Gemini alone
+            // when the key is the only thing set up, exactly as before.
+            if let describer = SummaryProviders.describer(config: config) {
                 clear(.noGeminiKey)
                 let requeued = (try? DescribeQueries(db).requeueRejectedFailures(
                     day: DayBoundaries.dayString(Date())
@@ -587,7 +589,6 @@ final class AppModel: ObservableObject {
                 if requeued > 0 {
                     Log.describe.info("re-queued \(requeued) frames a rejected key had failed")
                 }
-                let describer = GeminiClient(apiKey: key, model: config.describeModel)
                 let provider = describer.provider
                 describe = DescribeWorker(
                     config: config,
@@ -1767,7 +1768,7 @@ final class AppModel: ObservableObject {
     /// menu's first-run line, and is re-derived on every `render()` so it goes away the moment a
     /// key arrives.
     static func isFirstRun(_ config: Config) -> Bool {
-        (config.geminiAPIKey ?? "").isEmpty
+        SummaryProviders.effective(config).isEmpty
     }
 
     static func envFileURL() -> URL {
@@ -2700,7 +2701,7 @@ final class AppModel: ObservableObject {
     var setupProgress: SetupProgress {
         SetupProgress(
             screenRecording: screenRecording == .granted,
-            geminiKey: !(config.geminiAPIKey ?? "").isEmpty,
+            geminiKey: !SummaryProviders.effective(config).isEmpty,
             onboardedAt: onboardedAt
         )
     }

@@ -93,7 +93,8 @@ private struct Harness {
         cost: any CostGate = AlwaysAllowCostGate(),
         deleteSensitive: Bool = true,
         deleteAfterDescribe: Bool = false,
-        batteryMode: BatteryCaptureMode = .slow
+        batteryMode: BatteryCaptureMode = .slow,
+        chain: (any VisionDescriber)? = nil
     ) throws {
         dataDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("worklens-describe-\(UUID().uuidString)")
@@ -118,7 +119,7 @@ private struct Harness {
         let health = LockedBox<[DescribeHealth]>([])
         healths = health
         worker = DescribeWorker(
-            config: config, db: db, taxonomy: taxonomy, describer: describer, cost: cost,
+            config: config, db: db, taxonomy: taxonomy, describer: chain ?? describer, cost: cost,
             timeZone: TimeZone(identifier: "UTC")!,
             now: { noon },
             onDescribed: { day in nudged.withLock { $0.append(day) } },
@@ -1218,5 +1219,59 @@ struct DescribeWorkerProjectKeyTests {
         #expect(try await harness.worker.probe(captureId: capture.id) == .overBudget)
         #expect(harness.describer.callCount == 0)
         #expect(try rowCount(harness.db, "llm_calls") == 0)
+    }
+}
+
+// MARK: - A chain of summarizers
+
+@Suite("DescribeWorker with SUMMARY_PROVIDERS")
+struct DescribeWorkerChainTests {
+    @Test("a signed-out Claude falls through to Codex, and the row says Codex wrote it, at $0")
+    func fallsThrough() async throws {
+        let answer = DescribeResponse(
+            json: goodJSON(), usage: LLMUsage(promptTokens: 900, outputTokens: 60),
+            costUSD: 0, latencyMs: 900, model: "gpt-6.1-sol", provider: "codex"
+        )
+        let chain = DescriberChain([
+            .init(NamedStub("claude", [.failure(SubscriptionError.signedOut(.claude))]), model: "sonnet"),
+            .init(NamedStub("codex", [.success(answer)]), model: "sol"),
+        ])
+        let harness = try Harness(describer: StubDescriber(json: goodJSON()), chain: chain)
+        defer { harness.cleanUp() }
+        let capture = try harness.addCapture()
+
+        let outcome = try await harness.worker.processOne(captureId: capture.id)
+        guard case .described = outcome else {
+            Issue.record("expected .described, got \(outcome)")
+            return
+        }
+        let stored = try #require(try harness.descriptions.fetch(captureId: capture.id))
+        #expect(stored.provider == "codex")
+        #expect(stored.costUsd == 0)
+        let calls = try await harness.db.writer.read { db in try LLMCall.fetchAll(db) }
+        #expect(calls.map(\.provider) == ["codex"])
+        #expect(calls.first?.model == "gpt-6.1-sol")
+    }
+
+    @Test("every link signed out: the frame waits with its attempts untouched, the row names Claude")
+    func everyLinkSignedOut() async throws {
+        let chain = DescriberChain([
+            .init(NamedStub("claude", [.failure(SubscriptionError.signedOut(.claude))]), model: "sonnet"),
+            .init(NamedStub("codex", [.failure(SubscriptionError.notInstalled(.codex))]), model: "sol"),
+        ])
+        let harness = try Harness(describer: StubDescriber(json: goodJSON()), chain: chain)
+        defer { harness.cleanUp() }
+        let capture = try harness.addCapture()
+
+        for _ in 0..<4 { _ = try await harness.worker.processOne(captureId: capture.id) }
+
+        let reloaded = try #require(try harness.captures.fetch(id: capture.id))
+        #expect(reloaded.describeStatus == .pending)
+        #expect(reloaded.describeAttempts == 0)
+        let calls = try await harness.db.writer.read { db in try LLMCall.fetchAll(db) }
+        #expect(calls.count == 1)
+        #expect(calls.first?.provider == "claude")
+        #expect(calls.first?.model == "sonnet")
+        #expect(calls.first?.costUsd == 0)
     }
 }
