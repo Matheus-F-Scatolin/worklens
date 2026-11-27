@@ -56,16 +56,41 @@ public final class GeminiClient: VisionDescriber {
     public func requestBody(for request: DescribeRequest, imageBase64: String?) -> JSONValue {
         var parts: [JSONValue] = []
         if let imageBase64 {
-            parts.append(.object([
-                "inline_data": .object([
-                    "mime_type": .string("image/jpeg"),
-                    "data": .string(imageBase64),
-                ]),
-            ]))
+            parts.append(GeminiClient.imagePart(imageBase64))
         }
         parts.append(.object(["text": .string(request.userPrompt)]))
+        return body(for: request, parts: parts)
+    }
 
-        return .object([
+    /// A batch (`SUMMARY_BATCH`): the prompt first, then each picture after a `text` part with
+    /// its label ("Screenshot 3 of 7, 14:32:10"), in the order the prompt lists them, so every
+    /// picture sits next to the name the answer refers to it by. `imagesBase64` lines up with
+    /// `request.images`.
+    public func requestBody(for request: DescribeRequest, imagesBase64: [String]) -> JSONValue {
+        guard request.isBatch else {
+            return requestBody(for: request, imageBase64: imagesBase64.first)
+        }
+        var parts: [JSONValue] = [.object(["text": .string(request.userPrompt)])]
+        for (image, base64) in zip(request.images, imagesBase64) {
+            if let label = image.label {
+                parts.append(.object(["text": .string(label)]))
+            }
+            parts.append(GeminiClient.imagePart(base64))
+        }
+        return body(for: request, parts: parts)
+    }
+
+    private static func imagePart(_ base64: String) -> JSONValue {
+        .object([
+            "inline_data": .object([
+                "mime_type": .string("image/jpeg"),
+                "data": .string(base64),
+            ]),
+        ])
+    }
+
+    private func body(for request: DescribeRequest, parts: [JSONValue]) -> JSONValue {
+        .object([
             "systemInstruction": .object(["parts": .array([.object(["text": .string(request.systemInstruction)])])]),
             "contents": .array([
                 .object([
@@ -92,7 +117,7 @@ public final class GeminiClient: VisionDescriber {
         guard !apiKey.isEmpty else { throw LLMError.missingAPIKey("GEMINI_API_KEY") }
 
         let body = try JSONEncoder().encode(
-            requestBody(for: request, imageBase64: request.imageJPEG?.base64EncodedString())
+            requestBody(for: request, imagesBase64: request.images.map { $0.jpeg.base64EncodedString() })
         )
         let started = Date()
         let data = try await send(body: body)

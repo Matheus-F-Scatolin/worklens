@@ -702,3 +702,16 @@
 "Your key is saved, but Worklens is not using it." = "Your key is saved, but Worklens is not using it.";
 "Your plan hit its limit: summaries wait until it resets." = "Your plan hit its limit: summaries wait until it resets.";
 "Your sign-in lasts until %@." = "Your sign-in lasts until %@.";
+/* Settings → Advanced → Summaries: models and batches */
+"Claude model" = "Claude model";
+"ChatGPT model" = "ChatGPT model";
+"Gemini model" = "Gemini model";
+"Screenshots per request" = "Screenshots per request";
+"One at a time" = "One at a time";
+"Every few minutes" = "Every few minutes";
+"When you switch apps" = "When you switch apps";
+"Each screenshot is summarized on its own, soon after it is captured." = "Each screenshot is summarized on its own, soon after it is captured.";
+"Every %@, %@ in one request. Your timeline catches up when each batch is summarized." = "Every %@, %@ in one request. Your timeline catches up when each batch is summarized.";
+"Sent when you switch apps, or after %@ at the latest, %@ in one request. Your timeline catches up when each batch is summarized." = "Sent when you switch apps, or after %@ at the latest, %@ in one request. Your timeline catches up when each batch is summarized.";
+"Longest a batch waits" = "Longest a batch waits";
+"Most screenshots in one request" = "Most screenshots in one request";

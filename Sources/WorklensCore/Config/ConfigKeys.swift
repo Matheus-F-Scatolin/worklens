@@ -112,6 +112,57 @@ private extension Config {
             apply: { c, v, _ in c.codexSummaryModel = try SummaryProviders.choice("CODEX_SUMMARY_MODEL", v, from: SummaryProviders.codexModels) },
             read: { $0.codexSummaryModel }
         ),
+        ConfigKey(
+            name: "SUMMARY_BATCH",
+            section: .describe,
+            kind: .choice(SummaryBatchMode.allCases.map(\.rawValue)),
+            default: "",
+            help: "How many screenshots go into one summary request: each, every or app_switch.",
+            docs: """
+                How many screenshots go into one summary request.
+                  each       - one screenshot per request, as Worklens always did
+                  every      - what was captured over SUMMARY_BATCH_MINUTES, in one request
+                  app_switch - one request per stretch in one app; it closes when you switch apps,
+                               go idle or the screen is redacted, or after SUMMARY_BATCH_MINUTES
+                Empty follows the first summarizer: `app_switch` when it is claude or codex, so a
+                plan's limit lasts longer, and `each` with Gemini alone. Every screenshot still gets
+                its own summary; a batched one shows up on your timeline when its batch is sent.
+                """,
+            apply: { c, v, _ in
+                c.summaryBatch = try Config.enumValue("SUMMARY_BATCH", v, default: SummaryBatchMode.each)
+            },
+            read: { $0.summaryBatch?.rawValue ?? "" }
+        ),
+        ConfigKey(
+            name: "SUMMARY_BATCH_MINUTES",
+            section: .describe,
+            kind: .choice(SummaryBatching.minuteChoices.map(String.init)),
+            default: String(SummaryBatching.defaultMinutes),
+            help: "Minutes a batch of screenshots waits before it is summarized: 1, 5, 15 or 30.",
+            docs: """
+                For `SUMMARY_BATCH=every`, how often the screenshots captured since are summarized;
+                for `app_switch`, the longest a batch waits for you to switch apps. 1, 5, 15 or 30.
+                """,
+            apply: { c, v, _ in c.summaryBatchMinutes = try SummaryBatching.minutes("SUMMARY_BATCH_MINUTES", v) },
+            read: { String($0.summaryBatchMinutes) }
+        ),
+        ConfigKey(
+            name: "SUMMARY_BATCH_MAX",
+            section: .describe,
+            kind: .int,
+            default: String(SummaryBatching.defaultMaxSize),
+            help: "At most this many screenshots in one summary request. 1 to 20.",
+            docs: """
+                At most this many screenshots in one summary request; a longer batch is split. 1 to
+                20. Ignored when SUMMARY_BATCH is `each`.
+                """,
+            minimum: Double(SummaryBatching.maxSizeRange.lowerBound),
+            maximum: Double(SummaryBatching.maxSizeRange.upperBound),
+            apply: { c, v, _ in
+                c.summaryBatchMax = try Config.int("SUMMARY_BATCH_MAX", v, default: c.summaryBatchMax)
+            },
+            read: { String($0.summaryBatchMax) }
+        ),
     ]
 }
 

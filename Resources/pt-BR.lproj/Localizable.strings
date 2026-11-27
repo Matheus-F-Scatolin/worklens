@@ -393,3 +393,17 @@
 "Your key is saved, but Worklens is not using it." = "A sua chave está salva, mas o Worklens não a está usando.";
 "Your plan hit its limit: summaries wait until it resets." = "O seu plano atingiu o limite: os resumos esperam até ele renovar.";
 "Your sign-in lasts until %@." = "O seu login vale até %@.";
+/* Settings → Advanced → Summaries: models and batches */
+"Summaries" = "Resumos";
+"Claude model" = "Modelo do Claude";
+"ChatGPT model" = "Modelo do ChatGPT";
+"Gemini model" = "Modelo do Gemini";
+"Screenshots per request" = "Capturas por pedido";
+"One at a time" = "Uma de cada vez";
+"Every few minutes" = "A cada poucos minutos";
+"When you switch apps" = "Quando você troca de app";
+"Each screenshot is summarized on its own, soon after it is captured." = "Cada captura é resumida sozinha, logo depois de ser feita.";
+"Every %@, %@ in one request. Your timeline catches up when each batch is summarized." = "A cada %@, %@ em um só pedido. Sua linha do tempo se atualiza quando cada lote é resumido.";
+"Sent when you switch apps, or after %@ at the latest, %@ in one request. Your timeline catches up when each batch is summarized." = "Enviado quando você troca de app, ou depois de %@ no máximo, %@ em um só pedido. Sua linha do tempo se atualiza quando cada lote é resumido.";
+"Longest a batch waits" = "Espera máxima de um lote";
+"Most screenshots in one request" = "Máximo de capturas por pedido";

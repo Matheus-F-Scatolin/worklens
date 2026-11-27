@@ -71,6 +71,9 @@ public struct FakeDescriber: VisionDescriber {
     public var provider: String { FakeProvider.name }
 
     public func describe(_ request: DescribeRequest) async throws -> DescribeResponse {
+        if request.schema["properties"]?["screenshots"] != nil {
+            return try describeBatch(request)
+        }
         let seed = FakeProvider.seed(request.userPrompt)
         let appKeys = FakeProvider.enumValues(request.schema, property: "app_key")
         let taskKeys = FakeProvider.enumValues(request.schema, property: "task_key")
@@ -102,12 +105,76 @@ public struct FakeDescriber: VisionDescriber {
         )
     }
 
+    /// A batch (`SUMMARY_BATCH`): one entry per screenshot block in the prompt, each labelled
+    /// with the app key its block names and the first task the prompt lists for that app.
+    private func describeBatch(_ request: DescribeRequest) throws -> DescribeResponse {
+        let lines = request.userPrompt.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        let appKeys = Set(FakeProvider.enumValues(request.schema["properties"]?["screenshots"]?["items"] ?? .null, property: "app_key"))
+        var firstTask: [String: String] = [:]
+        var currentApp: String?
+        var inTasks = false
+        for line in lines {
+            if line.hasPrefix("App: "), let range = line.range(of: "(key: ") {
+                currentApp = line[range.upperBound...].split(separator: ",").first.map(String.init)
+                inTasks = false
+            } else if line == "Task keys for this app:" {
+                inTasks = true
+            } else if inTasks, line.hasPrefix("- "), let app = currentApp {
+                if firstTask[app] == nil {
+                    firstTask[app] = line.dropFirst(2).split(separator: ":").first.map(String.init)
+                }
+            } else {
+                inTasks = false
+            }
+        }
+
+        var blocks: [[String]] = []
+        for line in lines {
+            if line.hasPrefix("id: ") {
+                blocks.append([line])
+            } else if !blocks.isEmpty, !line.isEmpty {
+                blocks[blocks.count - 1].append(line)
+            }
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        var entries: [JSONValue] = []
+        for block in blocks {
+            let text = block.joined(separator: "\n")
+            guard let id = FakeProvider.promptField(text, key: "id") else { continue }
+            let named = FakeProvider.promptField(text, key: "App key") ?? "other"
+            let appKey = appKeys.contains(named) ? named : "other"
+            let taskKey = firstTask[appKey] ?? "other"
+            let frame = FrameDescription(
+                appKey: appKey,
+                taskKey: taskKey,
+                summary: summary(prompt: text, taskKey: taskKey, seed: FakeProvider.seed(text)),
+                document: FakeProvider.promptField(text, key: "Window title"),
+                projectHint: nil,
+                isMeeting: false,
+                isSensitive: false
+            )
+            var entry = try JSONDecoder().decode(JSONValue.self, from: encoder.encode(EncodableFrame(frame)))
+            if case var .object(object) = entry {
+                object["id"] = .string(id)
+                entry = .object(object)
+            }
+            entries.append(entry)
+        }
+        let json = String(decoding: try encoder.encode(JSONValue.object(["screenshots": .array(entries)])), as: UTF8.self)
+        return DescribeResponse(json: json, usage: .zero, costUSD: 0, latencyMs: 0, model: FakeProvider.model)
+    }
+
     /// Present tense, opens with a verb, no second person — the same rules the real prompt asks
     /// for — with the marker in front so it is unmistakable wherever the sentence is shown.
     private func summary(request: DescribeRequest, taskKey: String, seed: UInt64) -> String {
+        summary(prompt: request.userPrompt, taskKey: taskKey, seed: seed)
+    }
+
+    private func summary(prompt: String, taskKey: String, seed: UInt64) -> String {
         // "Google Chrome (com.google.Chrome)" → "Google Chrome": the bundle id is in the
         // prompt for the model's benefit, not for a sentence a person reads in the timeline.
-        let appLine = FakeProvider.promptField(request.userPrompt, key: "App") ?? "an app"
+        let appLine = FakeProvider.promptField(prompt, key: "App") ?? "an app"
         let app = appLine.split(separator: " (").first.map(String.init) ?? appLine
         let task = taskKey.replacingOccurrences(of: "_", with: " ")
         let verb =

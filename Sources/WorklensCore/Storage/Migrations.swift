@@ -434,6 +434,13 @@ public enum Migrations {
             try CaptureMetadataRepair.redactStoredMetadata(db)
         }
 
+        // A batched summary (`SUMMARY_BATCH`) describes several screenshots in one call, and the
+        // ledger keeps one row per call, so the row says how many it covered. Every row before
+        // this one covered exactly one; an older build ignores the column.
+        migrator.registerMigration("llm-calls-frames") { db in
+            try db.execute(sql: "ALTER TABLE llm_calls ADD COLUMN frames INTEGER NOT NULL DEFAULT 1")
+        }
+
         return migrator
     }
 }

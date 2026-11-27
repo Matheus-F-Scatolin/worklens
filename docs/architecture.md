@@ -751,6 +751,24 @@ The welcome window's `.keys` page is "How Worklens summarizes" and `SetupStep.su
 `SetupProgress.summaries` (was `geminiKey`) is satisfied by any provider in the effective order;
 `SetupIssue.noSummarizer` keeps the stored raw value `noGeminiKey`.
 
+**`SUMMARY_BATCH`, `SUMMARY_BATCH_MINUTES`, `SUMMARY_BATCH_MAX` (2026-11-27).** How many
+screenshots go into one summary call: `each` (one per call, as before), `every` (whatever was
+captured over `SUMMARY_BATCH_MINUTES`: 1, 5, 15 or 30, default 5) or `app_switch` (one call per
+stretch in one app, closed by an app change, an idle or redacted row, or the minutes). Empty
+follows the first effective summarizer (`SummaryBatching.mode`): `app_switch` for `claude` or
+`codex`, `each` for Gemini, so a Gemini-only install is unchanged. `SUMMARY_BATCH_MAX` (1–20,
+default 10) caps a batch. All three are editable in the app (Settings → Advanced → Summaries).
+`BatchPlanner` (pure, `Describe/SummaryBatch.swift`) cuts the pending frames into batches and
+says which are due; `DescribeWorker.runBatches` sends them. A batch of one, and every frame that
+was in a call before (`describe_attempts > 0`), takes the single-screenshot path unchanged. The
+batch prompt (`DescribePrompt+Batch.swift`, prompt `d6`) labels each screenshot
+`Screenshot k of n, HH:mm:ss` with its capture id, and the answer is
+`{"screenshots": [{"id", …one screenshot's fields}]}`; `decodeBatch` drops entries it cannot
+place, and a frame missing from the answer spends an attempt and goes again alone. Each answered
+frame's description carries an even share of the call's tokens and cost; the call is one
+`llm_calls` row whose `frames` says how many screenshots it covered. `describe-pending` flushes,
+and its `--limit` counts calls in a batch mode.
+
 **Config keys added in M5:** `CONTEXT_SYNC_MINUTES` (default 15) — how often the context sources
 are pulled. (`GRANOLA_MODE` was removed in #87 along with the local-cache source it selected.)
 Since #135 it is a control rather than a line of text (Settings → Advanced → "Sync sources every" since #286), and the two
@@ -1091,6 +1109,10 @@ it every evening. `DayBoundaries` stays the only place the conversion happens.
 **Migration `v2`** adds `llm_calls.pricing_version`, stamped by `LLMCallStore.insert` from
 `ModelPricing.pricingVersion` so a price change shows up as a change rather than as a mystery in
 last month's totals.
+
+**Migration `llm-calls-frames`** adds `llm_calls.frames INTEGER NOT NULL DEFAULT 1`: how many
+screenshots one call summarized (`SUMMARY_BATCH`). Every row before it was one screenshot, which
+is what the default says.
 
 **Migration `v4`** adds `captures.capture_source` and `ax_snapshots` (#53). `capture_source` is
 `screenshot | both | accessibility`, nullable because every row written before it was pixels only,

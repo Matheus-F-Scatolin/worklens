@@ -96,12 +96,82 @@ struct AdvancedSection: View {
         }
     }
 
-    // MARK: Models (read-only)
+    // MARK: Summaries
 
+    /// Which model each summarizer uses, and how many screenshots go into one request. The order
+    /// the summarizers are tried in lives in Connections.
     private var models: some View {
-        SettingsGroup(String(localized: "Models", comment: "Settings group")) {
-            SettingsRow(String(localized: "Summaries", comment: "Setting")) {
+        SettingsGroup(String(localized: "Summaries", comment: "Settings group")) {
+            SettingsRow(
+                String(localized: "Claude model", comment: "Setting"),
+                note: model.settingNote("CLAUDE_SUMMARY_MODEL")
+            ) {
+                SettingsMenu(
+                    label: String(localized: "Claude model", comment: "Setting"),
+                    options: SummaryProviders.claudeModels.map { ($0, Self.modelName($0)) },
+                    selection: model.config.claudeSummaryModel
+                ) {
+                    model.saveSetting("CLAUDE_SUMMARY_MODEL", $0, as: String(localized: "Claude model", comment: "Setting"))
+                }
+                .disabled(model.isSettingLocked("CLAUDE_SUMMARY_MODEL"))
+            }
+            SettingsRow(
+                String(localized: "ChatGPT model", comment: "Setting"),
+                note: model.settingNote("CODEX_SUMMARY_MODEL")
+            ) {
+                SettingsMenu(
+                    label: String(localized: "ChatGPT model", comment: "Setting"),
+                    options: SummaryProviders.codexModels.map { ($0, Self.modelName($0)) },
+                    selection: model.config.codexSummaryModel
+                ) {
+                    model.saveSetting("CODEX_SUMMARY_MODEL", $0, as: String(localized: "ChatGPT model", comment: "Setting"))
+                }
+                .disabled(model.isSettingLocked("CODEX_SUMMARY_MODEL"))
+            }
+            SettingsRow(String(localized: "Gemini model", comment: "Setting")) {
                 SettingsValueText(model.config.describeModel)
+            }
+            SettingsRow(
+                String(localized: "Screenshots per request", comment: "Setting"),
+                detail: batchHelp,
+                note: model.settingNote("SUMMARY_BATCH")
+            ) {
+                SettingsMenu(
+                    label: String(localized: "Screenshots per request", comment: "Setting"),
+                    options: SummaryBatchMode.allCases.map { ($0, Self.batchName($0)) },
+                    selection: SummaryBatching.mode(model.config)
+                ) {
+                    model.saveSetting("SUMMARY_BATCH", $0.rawValue, as: String(localized: "Screenshots per request", comment: "Setting"))
+                }
+                .disabled(model.isSettingLocked("SUMMARY_BATCH"))
+            }
+            if SummaryBatching.mode(model.config) != .each {
+                SettingsRow(
+                    String(localized: "Longest a batch waits", comment: "Setting"),
+                    note: model.settingNote("SUMMARY_BATCH_MINUTES")
+                ) {
+                    SettingsMenu(
+                        label: String(localized: "Longest a batch waits", comment: "Setting"),
+                        options: SummaryBatching.minuteChoices.map { ($0, SettingsDuration.words($0 * 60)) },
+                        selection: model.config.summaryBatchMinutes
+                    ) {
+                        model.saveSetting("SUMMARY_BATCH_MINUTES", String($0), as: String(localized: "Longest a batch waits", comment: "Setting"))
+                    }
+                    .disabled(model.isSettingLocked("SUMMARY_BATCH_MINUTES"))
+                }
+                SettingsRow(
+                    String(localized: "Most screenshots in one request", comment: "Setting"),
+                    note: model.settingNote("SUMMARY_BATCH_MAX")
+                ) {
+                    SettingsMenu(
+                        label: String(localized: "Most screenshots in one request", comment: "Setting"),
+                        options: batchSizes.map { ($0, String($0)) },
+                        selection: SummaryBatching.maxSize(model.config)
+                    ) {
+                        model.saveSetting("SUMMARY_BATCH_MAX", String($0), as: String(localized: "Most screenshots in one request", comment: "Setting"))
+                    }
+                    .disabled(model.isSettingLocked("SUMMARY_BATCH_MAX"))
+                }
             }
             SettingsRow(
                 String(localized: "Prices checked", comment: "Setting"),
@@ -114,6 +184,43 @@ struct AdvancedSection: View {
                 detail: model.describeHealthLine
             ) { EmptyView() }
         }
+    }
+
+    /// The sizes the menu offers, plus the current one when the file set another.
+    private var batchSizes: [Int] {
+        let offered = [2, 5, 10, 15, 20]
+        let current = SummaryBatching.maxSize(model.config)
+        return offered.contains(current) ? offered : (offered + [current]).sorted()
+    }
+
+    /// The one line under the batch menu: what the mode does with the numbers below it.
+    private var batchHelp: String {
+        let wait = SettingsDuration.words(model.config.summaryBatchMinutes * 60)
+        let size = L10n.plural(
+            count: SummaryBatching.maxSize(model.config),
+            one: "up to %lld screenshot", other: "up to %lld screenshots"
+        )
+        switch SummaryBatching.mode(model.config) {
+        case .each:
+            return String(localized: "Each screenshot is summarized on its own, soon after it is captured.", comment: "Setting detail")
+        case .every:
+            return L10n.format("Every %@, %@ in one request. Your timeline catches up when each batch is summarized.", wait, size)
+        case .appSwitch:
+            return L10n.format("Sent when you switch apps, or after %@ at the latest, %@ in one request. Your timeline catches up when each batch is summarized.", wait, size)
+        }
+    }
+
+    static func batchName(_ mode: SummaryBatchMode) -> String {
+        switch mode {
+        case .each: return String(localized: "One at a time", comment: "Batch mode")
+        case .every: return String(localized: "Every few minutes", comment: "Batch mode")
+        case .appSwitch: return String(localized: "When you switch apps", comment: "Batch mode")
+        }
+    }
+
+    /// `sonnet` → `Sonnet`: the family names are names, the same in every language.
+    static func modelName(_ family: String) -> String {
+        family.prefix(1).uppercased() + family.dropFirst()
     }
 
     // MARK: Privacy and sync

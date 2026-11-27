@@ -103,6 +103,21 @@ public struct DescribeQueries: Sendable {
     /// pathological backlog cannot turn one prompt into a table scan.
     private static let runContextRowLimit = 600
 
+    /// Whether a row after `start` (and before `end`, when given) ends a run in `bundle`: an
+    /// idle, locked or redacted row, or one from another app. The breaks `runContext` stops at,
+    /// asked of the rows between two pending frames so `app_switch` closes a batch there.
+    public func runBreaks(after start: Date, before end: Date?, bundle: String?) throws -> Bool {
+        try db.writer.read { db in
+            try Bool.fetchOne(db, sql: """
+                SELECT EXISTS(
+                    SELECT 1 FROM captures
+                    WHERE captured_at > ? AND (? IS NULL OR captured_at < ?)
+                      AND (is_idle = 1 OR is_redacted = 1 OR app_bundle_id IS NOT ?)
+                )
+                """, arguments: [start, end, end, bundle]) ?? false
+        }
+    }
+
     /// `describe_attempts += 1`, returning the new count.
     @discardableResult
     public func bumpAttempts(captureId: String) throws -> Int {

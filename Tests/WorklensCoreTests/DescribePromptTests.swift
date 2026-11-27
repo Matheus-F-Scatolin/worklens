@@ -52,11 +52,11 @@ private func input(
 
 @Suite("DescribePrompt d5 renderings")
 struct DescribePromptModeTests {
-    @Test("the version is d5, the subject is gone, every sensitivity rule kept")
+    @Test("the version is d6, the subject is gone, every sensitivity rule kept")
     func systemInstruction() {
-        // d4 (#90) added the known-project list and d5 (#315) lists it by key; the system text
-        // is still d3's.
-        #expect(DescribePrompt.version == "d5")
+        // d4 (#90) added the known-project list and d5 (#315) lists it by key; d6 added the batch
+        // prompt and left the single-screenshot one alone. The system text is still d3's.
+        #expect(DescribePrompt.version == "d6")
         let system = DescribePrompt.systemInstruction
         // d3 (#65): no instruction seeds "The person", and the delta ask is spelled out.
         #expect(!system.contains("the person is doing"))

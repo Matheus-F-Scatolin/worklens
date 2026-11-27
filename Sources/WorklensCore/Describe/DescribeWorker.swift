@@ -269,8 +269,12 @@ public actor DescribeWorker {
     /// that frame has to be described before the copy is taken — the other way round, the copy
     /// would come from whatever older frame already had a description, which may have shown a
     /// different app entirely.
+    ///
+    /// With `SUMMARY_BATCH` set to `every` or `app_switch`, `limit` counts calls rather than
+    /// frames: up to that many due batches go out, each followed by the inherited copies it
+    /// unblocked. `flush` sends every batch now, timer or not (`describe-pending`).
     @discardableResult
-    public func runCycle(limit: Int = DescribeWorker.batchSize) async throws -> [Outcome] {
+    public func runCycle(limit: Int = DescribeWorker.batchSize, flush: Bool = false) async throws -> [Outcome] {
         if let until = try appState.getDate(DescribeWorker.backoffKey), now() < until {
             Log.describe.debug("describe backoff until \(until)")
             return []
@@ -294,12 +298,214 @@ public actor DescribeWorker {
         defer { state = .idle }
 
         var outcomes: [Outcome] = []
-        for capture in try captures.fetchPendingDescribe(limit: limit) {
-            outcomes.append(try await process(capture))
+        let mode = SummaryBatching.mode(config)
+        if mode == .each {
+            for capture in try captures.fetchPendingDescribe(limit: limit) {
+                outcomes.append(try await process(capture))
+            }
+        } else {
+            outcomes += try await runBatches(mode: mode, limit: limit, flush: flush)
         }
         outcomes += try fillInherited(limit: limit)
         await noteCycle(outcomes)
         return outcomes
+    }
+
+    // MARK: - Batches (SUMMARY_BATCH)
+
+    /// The pending frames the planner looks at, with what the database knows about the rows
+    /// between them. `limit` batches of `maxSize`, plus one frame to see whether the last of
+    /// them is already closed.
+    private func plannerFrames(limit: Int, maxSize: Int) throws -> (captures: [Capture], frames: [BatchPlanner.Frame], closedAfter: Bool) {
+        let pending = try captures.fetchPendingDescribe(limit: limit * maxSize + 1)
+        var frames: [BatchPlanner.Frame] = []
+        var previous: Capture?
+        for capture in pending {
+            let breakBefore = try previous.map { earlier in
+                try queries.runBreaks(after: earlier.capturedAt, before: capture.capturedAt, bundle: capture.appBundleId)
+            } ?? false
+            frames.append(BatchPlanner.Frame(
+                id: capture.id,
+                capturedAt: capture.capturedAt,
+                app: capture.appBundleId,
+                breakBefore: breakBefore,
+                retryAlone: capture.describeAttempts > 0
+            ))
+            previous = capture
+        }
+        let closedAfter = try pending.last.map { last in
+            try queries.runBreaks(after: last.capturedAt, before: nil, bundle: last.appBundleId)
+        } ?? false
+        return (pending, frames, closedAfter)
+    }
+
+    private func plan(mode: SummaryBatchMode, limit: Int, flush: Bool) throws -> (plan: BatchPlanner.Plan, byId: [String: Capture]) {
+        let maxSize = SummaryBatching.maxSize(config)
+        let looked = try plannerFrames(limit: limit, maxSize: maxSize)
+        let plan = BatchPlanner.plan(
+            looked.frames, mode: mode, minutes: config.summaryBatchMinutes, maxSize: maxSize,
+            now: now(), closedAfter: looked.closedAfter, flush: flush
+        )
+        return (plan, Dictionary(uniqueKeysWithValues: looked.captures.map { ($0.id, $0) }))
+    }
+
+    /// Up to `limit` due batches, oldest first. A batch of one goes through the single-screenshot
+    /// path unchanged; a hold (an outage, a refusal, a failed call) ends the cycle, since the
+    /// batches behind it would meet the same provider.
+    private func runBatches(mode: SummaryBatchMode, limit: Int, flush: Bool) async throws -> [Outcome] {
+        let planned = try plan(mode: mode, limit: limit, flush: flush)
+        if let next = planned.plan.nextDue {
+            Log.describe.debug("next summary batch due at \(next)")
+        }
+        var outcomes: [Outcome] = []
+        let inheritLimit = limit * SummaryBatching.maxSize(config)
+        for ids in planned.plan.due.prefix(limit) {
+            let batch = ids.compactMap { planned.byId[$0] }
+            if batch.count == 1 {
+                outcomes.append(try await process(batch[0]))
+            } else if !batch.isEmpty {
+                outcomes += try await processBatch(batch)
+            }
+            outcomes += try fillInherited(limit: inheritLimit)
+            if let until = try appState.getDate(DescribeWorker.backoffKey), now() < until { break }
+        }
+        return outcomes
+    }
+
+    /// One call for several screenshots. Each answered screenshot gets its own description with
+    /// an even share of the call's tokens and cost, and the call is one `llm_calls` row with
+    /// `frames` set. A screenshot the answer left out spends an attempt and stays pending, so the
+    /// planner sends it again on its own.
+    private func processBatch(_ batch: [Capture]) async throws -> [Outcome] {
+        var outcomes: [Outcome] = []
+        var items: [Prepared] = []
+        for capture in batch {
+            do {
+                items.append(try prepare(capture, withContext: items.isEmpty))
+            } catch let error as WorkerError {
+                try captures.markDescribed(id: capture.id, status: .failed)
+                Log.describe.warn("capture \(capture.id) has no window text and no image on disk")
+                outcomes.append(.failed(error.description))
+            }
+        }
+        if items.count == 1 { return outcomes + [try await process(items[0].capture)] }
+        guard !items.isEmpty else { return outcomes }
+
+        let sent = items.map(\.capture)
+        let ids = sent.map(\.id)
+        var response: DescribeResponse
+        var answers: [String: (frame: FrameDescription, raw: String)]
+        do {
+            response = try await callDescriber(batchRequest(items))
+            answers = try DescribePrompt.decodeBatch(response.json, ids: ids)
+        } catch let decodeError as DecodingError {
+            Log.describe.warn("batch output did not match the schema; retrying once")
+            do {
+                response = try await callDescriber(batchRequest(items, repairNote: DescribePrompt.repairNote))
+                answers = try DescribePrompt.decodeBatch(response.json, ids: ids)
+            } catch is CancellationError {
+                return outcomes + sent.map { _ in .retryLater("cancelled") }
+            } catch {
+                return outcomes + (try await recordFailure(sent, error: error, describeError: "\(decodeError)"))
+            }
+        } catch is CancellationError {
+            return outcomes + sent.map { _ in .retryLater("cancelled") }
+        } catch {
+            return outcomes + (try await recordFailure(sent, error: error, describeError: nil))
+        }
+
+        let provider = response.provider ?? describer.provider
+        let answered = items.filter { answers[$0.capture.id] != nil }
+        let shares = SummaryBatching.shares(of: response.usage, costUSD: response.costUSD, count: answered.count)
+        var shareIndex = 0
+        for item in items {
+            let capture = item.capture
+            guard let answer = answers[capture.id] else {
+                let attempts = try queries.bumpAttempts(captureId: capture.id)
+                if attempts >= DescribeWorker.maxAttempts {
+                    try captures.markDescribed(id: capture.id, status: .failed)
+                    Log.describe.error("giving up on a frame after \(attempts) attempts: missing from the batch answer")
+                    outcomes.append(.failed("missing from the batch answer"))
+                } else {
+                    Log.describe.warn("a frame was missing from the batch answer; it goes again on its own")
+                    outcomes.append(.retryLater("missing from the batch answer"))
+                }
+                continue
+            }
+            var frame = answer.frame
+            if !DescribePrompt.allowedAppKeys(resolved: item.resolved, taxonomy: taxonomy.current).contains(frame.appKey) {
+                frame.appKey = item.resolved?.appKey ?? "other"
+            }
+            let share = shares[shareIndex]
+            shareIndex += 1
+            let description = try saveDescription(
+                frame, for: capture, resolved: item.resolved, redactions: item.redactions,
+                provider: provider, model: response.model,
+                usage: share.usage, costUSD: share.costUSD, latencyMs: response.latencyMs,
+                rawJSON: DescribePrompt.rawJSON(modelOutput: answer.raw)
+            )
+            try applyRetention(to: capture, isSensitive: description.isSensitive)
+            notifyDescribed(capture)
+            outcomes.append(.described(descriptionId: description.id, costUSD: share.costUSD))
+        }
+
+        try ledger.insert(LLMCall(
+            provider: provider,
+            model: response.model,
+            purpose: .describe,
+            promptTokens: response.usage.promptTokens,
+            outputTokens: response.usage.outputTokens,
+            thoughtTokens: response.usage.thoughtTokens,
+            cachedTokens: response.usage.cachedTokens,
+            costUsd: response.costUSD,
+            latencyMs: response.latencyMs,
+            httpStatus: 200,
+            frames: sent.count,
+            createdAt: now()
+        ))
+        await cost.ledgerChanged()
+        try appState.delete(DescribeWorker.backoffKey)
+        return outcomes
+    }
+
+    private func batchRequest(_ items: [Prepared], repairNote: String? = nil) -> DescribeRequest {
+        DescribePrompt.batchRequest(
+            items: items.map { item in
+                DescribePrompt.BatchItem(
+                    id: item.capture.id, resolved: item.resolved, input: item.input,
+                    imageJPEG: item.request.imageJPEG, imageFile: item.request.imageFile
+                )
+            },
+            taxonomy: taxonomy,
+            timeZone: timeZone,
+            language: config.reportLanguage,
+            projects: listedProjects(),
+            repairNote: repairNote
+        )
+    }
+
+    /// What the next call would send, prepared but not sent: the next due batch in a batch mode
+    /// (`flush` makes the one still waiting count), else the oldest pending frame. What
+    /// `describe-pending --dry-run` prints. Nil when nothing is pending.
+    public func prepareNextCall(flush: Bool = true) throws -> (captures: [Capture], request: DescribeRequest)? {
+        let mode = SummaryBatching.mode(config)
+        if mode == .each {
+            guard let prepared = try prepareFirstPending() else { return nil }
+            return ([prepared.capture], prepared.request)
+        }
+        let planned = try plan(mode: mode, limit: 1, flush: flush)
+        guard let ids = planned.plan.due.first else { return nil }
+        let batch = ids.compactMap { planned.byId[$0] }
+        var items: [Prepared] = []
+        for capture in batch {
+            if let prepared = try? prepare(capture, withContext: items.isEmpty) { items.append(prepared) }
+        }
+        guard let first = items.first else { return nil }
+        if items.count == 1 {
+            let single = try prepare(first.capture)
+            return ([single.capture], single.request)
+        }
+        return (items.map(\.capture), batchRequest(items))
     }
 
     // MARK: - Health
@@ -507,7 +713,7 @@ public actor DescribeWorker {
     /// Since #54 a frame is describable from either artifact: the stored outline, the JPEG, or
     /// both. Only a frame with neither is refused, and it is refused with the same message a
     /// missing file used to get, because that is still the usual cause.
-    private func prepare(_ capture: Capture) throws -> Prepared {
+    private func prepare(_ capture: Capture, withContext: Bool = true) throws -> Prepared {
         let jpeg = capture.imagePath.flatMap { relative in
             try? Data(contentsOf: config.dataDir.appendingPathComponent(relative))
         }
@@ -525,7 +731,8 @@ public actor DescribeWorker {
             windowText: windowText,
             coverage: snapshot?.coverage,
             hasImage: jpeg != nil,
-            repairNote: nil
+            repairNote: nil,
+            withContext: withContext
         )
         let request = DescribePrompt.request(
             imageJPEG: jpeg,
@@ -635,9 +842,10 @@ public actor DescribeWorker {
         windowText: String?,
         coverage: AXSnapshot.Coverage?,
         hasImage: Bool,
-        repairNote: String?
+        repairNote: String?,
+        withContext: Bool = true
     ) -> (input: DescribePrompt.Input, redactions: [TextRedactor.Kind: Int]) {
-        let context = (try? queries.runContext(for: capture)) ?? .empty
+        let context = withContext ? ((try? queries.runContext(for: capture)) ?? .empty) : .empty
         // The title and the address were redacted when the row was stored (`CaptureStore`), so
         // the placeholders they already hold are counted too.
         let title = redactedWithEarlier(capture.windowTitle)
@@ -700,6 +908,56 @@ public actor DescribeWorker {
         resolved: ResolvedApp?,
         redactions: [TextRedactor.Kind: Int] = [:]
     ) async throws -> Outcome {
+        let description = try saveDescription(
+            raw, for: capture, resolved: resolved, redactions: redactions,
+            provider: response.provider ?? describer.provider, model: response.model,
+            usage: response.usage, costUSD: response.costUSD, latencyMs: response.latencyMs,
+            rawJSON: DescribePrompt.rawJSON(modelOutput: response.json)
+        )
+
+        try ledger.insert(LLMCall(
+            provider: response.provider ?? describer.provider,
+            model: response.model,
+            purpose: .describe,
+            promptTokens: response.usage.promptTokens,
+            outputTokens: response.usage.outputTokens,
+            thoughtTokens: response.usage.thoughtTokens,
+            cachedTokens: response.usage.cachedTokens,
+            costUsd: response.costUSD,
+            latencyMs: response.latencyMs,
+            httpStatus: 200,
+            createdAt: now()
+        ))
+        await cost.ledgerChanged()
+
+        try applyRetention(to: capture, isSensitive: description.isSensitive)
+        try appState.delete(DescribeWorker.backoffKey)
+
+        notifyDescribed(capture)
+        return .described(descriptionId: description.id, costUSD: response.costUSD)
+    }
+
+    private func notifyDescribed(_ capture: Capture) {
+        if let onDescribed {
+            let day = DayBoundaries.dayString(capture.capturedAt, timeZone: timeZone)
+            Task { await onDescribed(day) }
+        }
+    }
+
+    /// Clamps one answer to what the taxonomy allows, then writes its `descriptions` row and marks
+    /// the capture described. No ledger row: a batch writes one for the whole call.
+    private func saveDescription(
+        _ raw: FrameDescription,
+        for capture: Capture,
+        resolved: ResolvedApp?,
+        redactions: [TextRedactor.Kind: Int],
+        provider: String,
+        model: String,
+        usage: LLMUsage,
+        costUSD: Double,
+        latencyMs: Int,
+        rawJSON: String
+    ) throws -> Description {
         var frame = raw
 
         // The schema constrains the enums, but a model can still answer with a key that does not
@@ -717,8 +975,8 @@ public actor DescribeWorker {
 
         let description = Description(
             captureId: capture.id,
-            provider: response.provider ?? describer.provider,
-            model: response.model,
+            provider: provider,
+            model: model,
             appKey: frame.appKey,
             taskKey: frame.taskKey,
             summaryMd: frame.summary,
@@ -728,40 +986,17 @@ public actor DescribeWorker {
             // d5 (#315) no longer asks for it; the column stays for older rows.
             confidence: nil,
             isInherited: false,
-            promptTokens: response.usage.promptTokens,
-            outputTokens: response.usage.outputTokens,
-            thoughtTokens: response.usage.thoughtTokens,
-            costUsd: response.costUSD,
-            latencyMs: response.latencyMs,
-            rawJson: DescribePrompt.rawJSON(modelOutput: response.json),
+            promptTokens: usage.promptTokens,
+            outputTokens: usage.outputTokens,
+            thoughtTokens: usage.thoughtTokens,
+            costUsd: costUSD,
+            latencyMs: latencyMs,
+            rawJson: rawJSON,
             createdAt: now()
         )
         try descriptions.insert(description)
         try captures.markDescribed(id: capture.id, status: .described)
-
-        try ledger.insert(LLMCall(
-            provider: response.provider ?? describer.provider,
-            model: response.model,
-            purpose: .describe,
-            promptTokens: response.usage.promptTokens,
-            outputTokens: response.usage.outputTokens,
-            thoughtTokens: response.usage.thoughtTokens,
-            cachedTokens: response.usage.cachedTokens,
-            costUsd: response.costUSD,
-            latencyMs: response.latencyMs,
-            httpStatus: 200,
-            createdAt: now()
-        ))
-        await cost.ledgerChanged()
-
-        try applyRetention(to: capture, isSensitive: frame.isSensitive)
-        try appState.delete(DescribeWorker.backoffKey)
-
-        if let onDescribed {
-            let day = DayBoundaries.dayString(capture.capturedAt, timeZone: timeZone)
-            Task { await onDescribed(day) }
-        }
-        return .described(descriptionId: description.id, costUSD: response.costUSD)
+        return description
     }
 
     /// Sensitive frames lose their image when `DELETE_SENSITIVE_SCREENSHOTS` is on; every frame
@@ -797,6 +1032,13 @@ public actor DescribeWorker {
     }
 
     private func recordFailure(_ capture: Capture, error: Error, describeError: String?) async throws -> Outcome {
+        try await recordFailure([capture], error: error, describeError: describeError)[0]
+    }
+
+    /// The same for a batch: one ledger row for the call, and every screenshot in it spends one
+    /// attempt, so each is sent again on its own (`BatchPlanner`). An outage or a refusal holds the
+    /// queue and spends nothing, exactly as for one screenshot.
+    private func recordFailure(_ batch: [Capture], error: Error, describeError: String?) async throws -> [Outcome] {
         let llmError = error as? LLMError
         let message = describeError ?? llmError?.description ?? "\(error)"
         // The class of the failure, for the log and the menu. `message` keeps the provider's own
@@ -814,7 +1056,8 @@ public actor DescribeWorker {
         // frame and marked every one of them `failed`, which no code path ever undid: the day's
         // frames were gone even after the key was corrected.
         if describeError == nil, failure.isRefusal {
-            return try await holdForRefusal(failure, message: message)
+            let held = try await holdForRefusal(failure, message: message, frames: batch.count)
+            return batch.map { _ in held }
         }
 
         // An unreachable provider says nothing about this frame, so it must not spend one of the
@@ -826,19 +1069,30 @@ public actor DescribeWorker {
         // which is real evidence about the frame; that still counts, even if the repair call was
         // the thing that could not reach the provider.
         if describeError == nil, DescribeWorker.isUnreachable(error) || failure.isUnreachable {
-            return try await holdForOutage(
-                failure, message: message, httpStatus: llmError?.httpStatus
+            let held = try await holdForOutage(
+                failure, message: message, httpStatus: llmError?.httpStatus, frames: batch.count
             )
+            return batch.map { _ in held }
         }
 
-        try await recordLedgerFailure(message: message, httpStatus: llmError?.httpStatus, error: error)
+        try await recordLedgerFailure(
+            message: message, httpStatus: llmError?.httpStatus, error: error, frames: batch.count
+        )
 
-        let attempts = try queries.bumpAttempts(captureId: capture.id)
-        if attempts >= DescribeWorker.maxAttempts {
-            try captures.markDescribed(id: capture.id, status: .failed)
-            Log.describe.error("giving up on a frame after \(attempts) attempts: \(failure.reason)")
-            return .failed(message)
+        var outcomes: [Outcome] = []
+        var attempts = 0
+        for capture in batch {
+            let spent = try queries.bumpAttempts(captureId: capture.id)
+            if spent >= DescribeWorker.maxAttempts {
+                try captures.markDescribed(id: capture.id, status: .failed)
+                Log.describe.error("giving up on a frame after \(spent) attempts: \(failure.reason)")
+                outcomes.append(.failed(message))
+            } else {
+                attempts = max(attempts, spent)
+                outcomes.append(.retryLater(message))
+            }
         }
+        guard attempts > 0 else { return outcomes }
 
         // Exponential hold on the whole queue, not just this frame: the usual cause is the
         // provider being unhappy, and hammering it with the next four frames will not help.
@@ -848,7 +1102,7 @@ public actor DescribeWorker {
         Log.describe.warn(
             "describe attempt \(attempts) failed (\(failure.reason)); holding \(Int(delay))s"
         )
-        return .retryLater(message)
+        return outcomes
     }
 
     /// Holds the whole queue while the provider is out of reach, leaving every frame `pending`.
@@ -857,10 +1111,10 @@ public actor DescribeWorker {
     /// long stretch offline costs a handful of probes instead of one every fifteen seconds, and
     /// one row in `llm_calls` instead of hundreds.
     private func holdForOutage(
-        _ failure: DescribeHealth.Failure, message: String, httpStatus: Int?
+        _ failure: DescribeHealth.Failure, message: String, httpStatus: Int?, frames: Int = 1
     ) async throws -> Outcome {
         if networkOutages == 0 {
-            try await recordLedgerFailure(message: message, httpStatus: httpStatus, error: lastError)
+            try await recordLedgerFailure(message: message, httpStatus: httpStatus, error: lastError, frames: frames)
         }
         let delay = min(
             pow(2.0, Double(networkOutages)) * DescribeWorker.pollInterval,
@@ -882,10 +1136,12 @@ public actor DescribeWorker {
     /// feeding itself into it five frames at a time. One ledger row per stretch, not one per
     /// probe. The frames recover on their own once the key is fixed and the app reloads.
     private func holdForRefusal(
-        _ failure: DescribeHealth.Failure, message: String
+        _ failure: DescribeHealth.Failure, message: String, frames: Int = 1
     ) async throws -> Outcome {
         if providerRefusals == 0 {
-            try await recordLedgerFailure(message: message, httpStatus: failure.httpStatus, error: lastError)
+            try await recordLedgerFailure(
+                message: message, httpStatus: failure.httpStatus, error: lastError, frames: frames
+            )
         }
         let delay = min(
             pow(2.0, Double(providerRefusals)) * DescribeWorker.pollInterval,
@@ -906,7 +1162,9 @@ public actor DescribeWorker {
         try appState.setDate(DescribeWorker.backoffKey, until)
     }
 
-    private func recordLedgerFailure(message: String, httpStatus: Int?, error: Error? = nil) async throws {
+    private func recordLedgerFailure(
+        message: String, httpStatus: Int?, error: Error? = nil, frames: Int = 1
+    ) async throws {
         let failed = error.flatMap(DescriberChain.failedLink)
         try ledger.insert(LLMCall(
             provider: failed?.provider ?? describer.provider,
@@ -915,6 +1173,7 @@ public actor DescribeWorker {
             costUsd: 0,
             httpStatus: httpStatus,
             error: String(message.prefix(500)),
+            frames: frames,
             createdAt: now()
         ))
         await cost.ledgerChanged()

@@ -192,6 +192,34 @@ public final class TaxonomyStore: @unchecked Sendable {
         return lines.joined(separator: "\n")
     }
 
+    /// The same block for a batch of screenshots (`SUMMARY_BATCH`): each app in the batch once,
+    /// with its task keys, in the order the batch first shows it, then the universal tasks once.
+    /// A nil entry is a screenshot whose app the taxonomy does not know, and adds the list of
+    /// every app key once.
+    public func promptFragment(forApps apps: [ResolvedApp?]) -> String {
+        let taxonomy = current
+        var lines: [String] = []
+        var seen: Set<String> = []
+        var unrecognized = false
+        for app in apps {
+            guard let app else {
+                unrecognized = true
+                continue
+            }
+            guard seen.insert(app.appKey).inserted else { continue }
+            lines.append("App: \(app.name) (key: \(app.appKey), category: \(app.category))")
+            lines.append("Task keys for this app:")
+            lines += app.tasks.map(Self.taskLine)
+        }
+        if unrecognized {
+            lines.append("Apps not recognized: pick the closest of these app keys, else \"other\":")
+            lines.append(taxonomy.allAppKeys.joined(separator: ", "))
+        }
+        lines.append("Universal task keys (always allowed):")
+        lines += taxonomy.universalTasks.map(Self.taskLine)
+        return lines.joined(separator: "\n")
+    }
+
     private static func taskLine(_ task: TaskEntry) -> String {
         task.description.isEmpty ? "- \(task.key)" : "- \(task.key): \(task.description)"
     }
