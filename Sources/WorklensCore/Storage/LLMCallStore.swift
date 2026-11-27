@@ -97,6 +97,8 @@ public struct LLMCallStore: Sendable {
     /// Mean cost of a *successful* call for one purpose over the last `days` days, or nil when
     /// there has never been one. Failures are excluded: they cost nothing and would drag the
     /// estimate towards zero exactly when the provider is unhappy.
+    /// Calls through a Claude or ChatGPT plan are excluded for the same reason: they are always
+    /// $0, and the estimate is what one more *paid* call costs.
     public func averageCost(
         purpose: LLMPurpose, days: Int, timeZone: TimeZone = .current, now: Date = Date()
     ) throws -> Double? {
@@ -108,8 +110,30 @@ public struct LLMCallStore: Sendable {
             try Double.fetchOne(db, sql: """
                 SELECT AVG(cost_usd) FROM llm_calls
                 WHERE purpose = ? AND error IS NULL AND created_at >= ? AND created_at < ?
-                """, arguments: [purpose.rawValue, start, end])
+                  AND provider NOT IN (?, ?)
+                """, arguments: [purpose.rawValue, start, end, ClaudeDescriber.provider, CodexDescriber.provider])
         }
+    }
+
+    /// Today's summaries per provider (Settings → Usage): how many calls went out, how many
+    /// screenshots they summarized and what they cost. Successful calls only: a failed one
+    /// summarized nothing. Keyed by `llm_calls.provider`.
+    public func summaryUsage(from: Date, to: Date) throws -> [String: ProviderUsage] {
+        let rows = try db.writer.read { db in
+            try Row.fetchAll(db, sql: """
+                SELECT provider, COUNT(*) AS calls, COALESCE(SUM(frames), 0) AS frames,
+                       COALESCE(SUM(cost_usd), 0) AS cost
+                FROM llm_calls
+                WHERE purpose = ? AND error IS NULL AND created_at >= ? AND created_at < ?
+                GROUP BY provider
+                """, arguments: [LLMPurpose.describe.rawValue, from, to])
+        }
+        var usage: [String: ProviderUsage] = [:]
+        for row in rows {
+            let provider: String = row["provider"]
+            usage[provider] = ProviderUsage(calls: row["calls"], screenshots: row["frames"], costUSD: row["cost"])
+        }
+        return usage
     }
 
     /// The half-open instant range covering the last `days` **local** days, ending at tomorrow's

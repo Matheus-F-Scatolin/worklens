@@ -166,7 +166,7 @@ struct ConfigTests {
             "GOOGLE_TOKEN_STORE", "GITHUB_SHIPPED", "MEMO_REPOS", "AGENT_SESSIONS",
             "AUTO_UPDATE_ENABLED", "AUTO_UPDATE_POLL_MINUTES", "PAUSE_REMINDER_HOURS",
             "SUMMARY_PROVIDERS", "CLAUDE_SUMMARY_MODEL", "CODEX_SUMMARY_MODEL",
-            "SUMMARY_BATCH", "SUMMARY_BATCH_MINUTES", "SUMMARY_BATCH_MAX",
+            "SUMMARY_BATCH", "SUMMARY_BATCH_MINUTES", "SUMMARY_BATCH_MAX", "SUBSCRIPTION_HEADROOM_PERCENT",
         ]
         let keys = try Config.load(layers: [[:]], cwd: cwd).dumpLines.map(\.key)
         #expect(Set(keys) == Set(expected))
@@ -253,7 +253,7 @@ struct ConfigTests {
         #expect(config.captureIdleSeconds == 45)
         #expect(AXWalkLimits().maxNodes == 400)
         // Nothing retired can be asked for any more: `config-dump` prints 42 keys, none of them.
-        #expect(Config.knownKeys.count == 42)
+        #expect(Config.knownKeys.count == 43)
         #expect(Set(Config.knownKeys).isDisjoint(with: Config.retiredKeys))
     }
 

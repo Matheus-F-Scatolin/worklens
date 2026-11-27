@@ -344,11 +344,36 @@ public enum SummaryNotices {
                     tool, summarizing: summarizing, until: resetsAt == nil ? nil : skip.until,
                     timeZone: timeZone, locale: locale
                 )
+            case .headroom:
+                // Only a notice when nothing else is summarizing: the plan is being looked after,
+                // not failing, and the row in Settings says so either way.
+                guard skip.until > now, summarizing == nil, issues[.subscriptionLimit] == nil else { continue }
+                issues[.subscriptionLimit] = headroomMessage(
+                    tool, summarizing: nil, until: skip.until, now: now, timeZone: timeZone, locale: locale
+                )
             default:
                 continue
             }
         }
         return issues
+    }
+
+    /// `Worklens is leaving the rest of your Claude plan for your own work; ChatGPT is
+    /// summarizing until 15:40.` (`SUBSCRIPTION_HEADROOM_PERCENT`)
+    public static func headroomMessage(
+        _ tool: SubscriptionTool, summarizing: SummaryProvider?, until: Date, now: Date = Date(),
+        timeZone: TimeZone = .current, locale: Locale = Format.fixed
+    ) -> String {
+        let plan = DescribeHealth.planName(tool)
+        let when = Format.clockOrDay(until, now: now, timeZone: timeZone, locale: locale)
+        if let summarizing {
+            return L10n.format(
+                "Worklens is leaving the rest of your %@ plan for your own work; %@ is summarizing until %@.",
+                plan, SummaryConnection.name(summarizing), when)
+        }
+        return L10n.format(
+            "Worklens is leaving the rest of your %@ plan for your own work; nothing is summarized until %@.",
+            plan, when)
     }
 
     /// `Your Claude sign-in stopped working: run claude auth login in Terminal. ChatGPT is
@@ -414,6 +439,13 @@ public enum SummaryNotices {
                     tool, summarizing: summarizing, until: resetsAt == nil ? nil : skip.until,
                     timeZone: timeZone, locale: locale),
                 .planLimit
+            )
+        case .headroom:
+            guard skip.until > now else { return nil }
+            return (
+                headroomMessage(
+                    tool, summarizing: summarizing, until: skip.until, now: now, timeZone: timeZone, locale: locale),
+                .planHeadroom
             )
         case .timedOut, .general:
             guard skip.until > now else { return nil }

@@ -75,6 +75,7 @@ public enum SummaryProviders {
         config: Config,
         cli: any SubscriptionCLI = SubscriptionCLIRunner(),
         only: SummaryProvider? = nil,
+        budget: (any CostGate)? = nil,
         now: @escaping @Sendable () -> Date = { Date() }
     ) -> (any VisionDescriber)? {
         let providers = only.map { [$0] } ?? effective(config)
@@ -83,7 +84,10 @@ public enum SummaryProviders {
             let describer: any VisionDescriber
             switch provider {
             case .claude:
-                describer = ClaudeDescriber(cli: cli, model: config.claudeSummaryModel, workspace: workspace, now: now)
+                describer = ClaudeDescriber(
+                    cli: cli, model: config.claudeSummaryModel, workspace: workspace,
+                    headroomPercent: config.subscriptionHeadroomPercent, now: now
+                )
             case .codex:
                 describer = CodexDescriber(cli: cli, family: config.codexSummaryModel, workspace: workspace, now: now)
             case .gemini:
@@ -96,6 +100,7 @@ public enum SummaryProviders {
         // A subscription alone still goes through the chain, for its skip memory and so its
         // failure rows name the right model.
         if links.count == 1, first.describer is GeminiClient { return first.describer }
-        return DescriberChain(links, now: now)
+        // `budget` is asked before each link that costs money; a plan link is never held by it.
+        return DescriberChain(links, budget: budget, now: now)
     }
 }

@@ -115,6 +115,39 @@ public enum Format {
         return shortDate(date, timeZone: timeZone, locale: locale)
     }
 
+    /// `Friday`: the day of the week, for a date in the next few days.
+    public static func weekday(
+        _ date: Date, timeZone: TimeZone, locale: Locale = Format.fixed
+    ) -> String {
+        let formatter = DateFormatter()
+        formatter.timeZone = timeZone
+        if isFixed(locale) {
+            formatter.locale = fixed
+            formatter.dateFormat = "EEEE"
+        } else {
+            formatter.locale = locale
+            formatter.setLocalizedDateFormatFromTemplate("EEEE")
+        }
+        return formatter.string(from: date)
+    }
+
+    /// `15:40` today, `Friday 15:40` on a later day: when a plan window resets, which for the
+    /// weekly one can be days away.
+    public static func clockOrDay(
+        _ date: Date, now: Date, timeZone: TimeZone, locale: Locale = Format.fixed
+    ) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let clock = clock(date, timeZone: timeZone, locale: locale)
+        if calendar.isDate(date, inSameDayAs: now) { return clock }
+        return "\(weekday(date, timeZone: timeZone, locale: locale)) \(clock)"
+    }
+
+    /// A whole percent, `80%` (`80 %` where the locale spaces it).
+    public static func percent(_ value: Int, locale: Locale = fixed) -> String {
+        (Double(value) / 100).formatted(.percent.precision(.fractionLength(0)).locale(locale))
+    }
+
     // MARK: Cadence
 
     /// `60 s`, `5 min`, `2.5 min` — whichever reads better at the length a menu row has.

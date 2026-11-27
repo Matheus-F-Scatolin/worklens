@@ -49,6 +49,10 @@ public enum HelpLink: String, CaseIterable, Sendable {
     case planLimit = "your-plan-hit-its-limit"
     /// Screenshots have waited past their turn to be summarized.
     case screenshotsWaiting = "screenshots-are-waiting-to-be-summarized"
+    /// The Claude sign-in ends within three days.
+    case signInEnding = "your-claude-sign-in-ends-soon"
+    /// A plan window is fuller than the headroom setting, so Worklens skips it until it resets.
+    case planHeadroom = "worklens-is-leaving-your-plan-for-your-own-work"
 
     /// The page every anchor above lives in, relative to the repository root.
     public static let page = "docs/user/troubleshooting.md"

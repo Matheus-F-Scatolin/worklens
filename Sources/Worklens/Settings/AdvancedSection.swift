@@ -128,6 +128,26 @@ struct AdvancedSection: View {
                 }
                 .disabled(model.isSettingLocked("CODEX_SUMMARY_MODEL"))
             }
+            SettingsRow(
+                String(localized: "Use a Claude plan up to", comment: "Setting"),
+                detail: String(
+                    localized: "Past this share of a usage window, Worklens leaves the rest for your own work until it resets.",
+                    comment: "Setting detail"),
+                note: model.settingNote("SUBSCRIPTION_HEADROOM_PERCENT")
+            ) {
+                SettingsMenu(
+                    label: String(localized: "Use a Claude plan up to", comment: "Setting"),
+                    options: PlanHeadroom.choices(current: model.config.subscriptionHeadroomPercent).map {
+                        ($0, Format.percent($0, locale: .autoupdatingCurrent))
+                    },
+                    selection: model.config.subscriptionHeadroomPercent
+                ) {
+                    model.saveSetting(
+                        "SUBSCRIPTION_HEADROOM_PERCENT", String($0),
+                        as: String(localized: "Use a Claude plan up to", comment: "Setting"))
+                }
+                .disabled(model.isSettingLocked("SUBSCRIPTION_HEADROOM_PERCENT"))
+            }
             SettingsRow(String(localized: "Gemini model", comment: "Setting")) {
                 SettingsValueText(model.config.describeModel)
             }

@@ -76,3 +76,30 @@ public struct AlwaysAllowCostGate: CostGate {
     public var isOverBudget: Bool { get async { false } }
     public func allows(_ purpose: LLMPurpose, userInitiated: Bool) async -> Bool { true }
 }
+
+/// The budget as summarizing sees it once a Claude or ChatGPT plan is in `SUMMARY_PROVIDERS`
+/// (Part 4). `DAILY_BUDGET_USD` stops only calls that cost money, so with a plan in the order a
+/// spent budget no longer stops a screenshot from being summarized: the capture scheduler keeps
+/// it waiting rather than putting it on hold, and the describe worker sends it to the chain,
+/// which asks the real gate before each link that costs money (`DescriberChain`).
+///
+/// Everything else (the spend, `isOverBudget`, the ledger) is the wrapped gate's.
+public struct SummaryBudgetGate: CostGate {
+    public let base: any CostGate
+    /// Whether a summary can go out without costing money.
+    public let hasFreeSummarizer: Bool
+
+    public init(_ base: any CostGate, describer: (any VisionDescriber)?) {
+        self.base = base
+        self.hasFreeSummarizer = !(describer?.costsMoney ?? true)
+    }
+
+    public var isOverBudget: Bool { get async { await base.isOverBudget } }
+
+    public func allows(_ purpose: LLMPurpose, userInitiated: Bool) async -> Bool {
+        if purpose == .describe, hasFreeSummarizer { return true }
+        return await base.allows(purpose, userInitiated: userInitiated)
+    }
+
+    public func ledgerChanged() async { await base.ledgerChanged() }
+}

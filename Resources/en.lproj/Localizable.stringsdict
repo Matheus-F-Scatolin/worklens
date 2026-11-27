@@ -283,5 +283,37 @@
 			<string>up to %lld screenshots</string>
 		</dict>
 	</dict>
+	<key>%lld calls</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld call</string>
+			<key>other</key>
+			<string>%lld calls</string>
+		</dict>
+	</dict>
+	<key>%lld screenshots</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld screenshot</string>
+			<key>other</key>
+			<string>%lld screenshots</string>
+		</dict>
+	</dict>
 </dict>
 </plist>

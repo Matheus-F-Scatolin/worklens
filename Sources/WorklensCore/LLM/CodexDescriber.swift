@@ -59,6 +59,9 @@ public final class CodexDescriber: VisionDescriber {
 
     public var provider: String { CodexDescriber.provider }
 
+    /// A plan call is never billed per token, so the daily budget does not hold it.
+    public var costsMoney: Bool { false }
+
     // MARK: - The command
 
     /// Everything after `codex`. `model` nil leaves the choice to the command. The instruction

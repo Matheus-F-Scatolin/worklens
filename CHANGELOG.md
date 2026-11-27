@@ -39,6 +39,17 @@ and opening a fresh empty one above it.
   `each` for Gemini, so a Gemini-only install is unchanged. `SUMMARY_BATCH_MINUTES` (1, 5, 15 or
   30) is the longest a batch waits and `SUMMARY_BATCH_MAX` (1–20) its size; all three are in
   Settings → Advanced → Summaries. The prompt is now `d6`.
+- **Your Claude plan keeps room for your own work.** `SUBSCRIPTION_HEADROOM_PERCENT` (default
+  80; Settings → Advanced → Summaries) stops summarizing through Claude once its five-hour or
+  weekly window is that full, until the window resets; the next way in the order takes over.
+  ChatGPT does not report its windows, so it is skipped only at its actual limit.
+- **Notifications about a plan.** Three days and one day before your Claude sign-in ends, when a
+  Claude or ChatGPT sign-in ran out (naming who summarizes meanwhile), and when 100 screenshots
+  have been waiting past their turn. Each is sent once per occurrence, only if you allowed
+  notifications, and is also a notice in the app. Worklens reads `claude auth status` at launch
+  and every six hours.
+- **Usage shows summaries per way.** Settings → Usage → **Summaries today** lists the calls and
+  screenshots each way summarized today; dollars only for Gemini.
 - **Google Calendar setup starts with Copy setup prompt.** It copies a prompt for Claude Code
   or Codex that sets up the Google Cloud project, API, consent screen and OAuth client in your
   browser, stops for every sign-in or confirmation, and ends by telling you the two values to
@@ -59,6 +70,11 @@ and opening a fresh empty one above it.
   never for the sample week or an install that was already running.
 
 ### Fixed
+- The daily budget now stops only Gemini. A Claude or ChatGPT plan summarizes past it, its calls
+  are recorded at $0, and they never count toward the budget or toward the estimate of a call.
+- Screenshots that waited because nothing could summarize them (every plan signed out or at its
+  limit) are set aside after 72 hours instead of 24, with the reason `unavailable`, and are
+  summarized as soon as a way works again while the screenshot file is still on disk.
 - The first-summary notification is no longer lost when your first summaries arrived while
   Worklens was closed, and summaries from the offline fake no longer count as your first day.
 

@@ -168,32 +168,118 @@ extension AppModel {
         lastSummaryByProvider = (try? queries.lastSummaryByProvider()) ?? [:]
         let order = SummaryProviders.effective(config)
         let skips = summaryChain?.skipped() ?? []
-        let open = SummaryNotices.derive(
+        let statuses = subscriptionStatuses
+        let signedOut = SummaryAlerts.signedOutTools(order: order, skips: skips, statuses: statuses, now: now)
+        let summarizing = SummaryAlerts.summarizing(order: order, skips: skips, signedOut: signedOut, now: now)
+        var open = SummaryNotices.derive(
             order: order, skips: skips, now: now,
             timeZone: .autoupdatingCurrent, locale: .autoupdatingCurrent
         )
+        // A sign-in whose end date passed, or that a status check found signed out, is the same
+        // notice as a call that failed signed out: whichever comes first raises it.
+        for tool in signedOut {
+            let issue: SetupIssue = tool == .claude ? .claudeSignedOut : .codexSignedOut
+            if open[issue] == nil {
+                open[issue] = SummaryNotices.signedOutMessage(tool, summarizing: summarizing)
+            }
+        }
         for issue in SummaryNotices.derivedIssues {
             if let message = open[issue] { raise(issue, message: message) } else { clear(issue) }
         }
 
-        if order.contains(where: { $0.tool != nil }),
-           let waiting = try? queries.waitingCount(capturedBefore: now.addingTimeInterval(-SummaryNotices.pastDueAfter)),
-           let message = SummaryNotices.backlogMessage(waiting: waiting, locale: .autoupdatingCurrent) {
+        if order.contains(.claude), !signedOut.contains(.claude),
+           let ends = SummaryAlerts.endingSoon(.claude, statuses: statuses, now: now) {
+            raise(.claudeSignInEnding, message: NotificationCopy.signInEndingBody(
+                .claude, expiresAt: ends, now: now, timeZone: .autoupdatingCurrent, locale: .autoupdatingCurrent))
+        } else {
+            clear(.claudeSignInEnding)
+        }
+
+        let plans = order.contains(where: { $0.tool != nil })
+        let waiting = plans
+            ? try? queries.waitingCount(capturedBefore: now.addingTimeInterval(-SummaryNotices.pastDueAfter))
+            : nil
+        if let waiting, let message = SummaryNotices.backlogMessage(waiting: waiting, locale: .autoupdatingCurrent) {
             raise(.summariesWaiting, message: message)
         } else {
             clear(.summariesWaiting)
         }
 
+        postSummaryAlerts(
+            db: db, order: order, statuses: statuses, signedOut: signedOut,
+            summarizing: summarizing, waiting: waiting, now: now)
+        settleUnavailable(db: db, order: order, skips: skips, signedOut: signedOut, summarizing: summarizing, now: now)
+
         // A sign-in that stopped working is asked about again every five minutes, so signing
-        // back in is noticed without opening a window.
-        let signedOut = skips.contains { skip in
+        // back in is noticed without opening a window; otherwise every six hours (and at launch,
+        // when nothing was asked yet), so a sign-in's end date is known days ahead.
+        let checkedAgo = now.timeIntervalSince(subscriptionStatusCheckedAt ?? .distantPast)
+        let failing = skips.contains { skip in
             switch skip.kind {
             case .signedOut, .notSubscription: true
             default: false
             }
         }
-        if signedOut, now.timeIntervalSince(subscriptionStatusCheckedAt ?? .distantPast) > 5 * 60 {
+        if plans, (failing && checkedAgo > 5 * 60) || checkedAgo > Self.subscriptionStatusInterval {
             refreshSubscriptionStatuses()
         }
+    }
+
+    /// How often `claude auth status` and `codex login status` are asked while nothing is wrong.
+    static let subscriptionStatusInterval: TimeInterval = 6 * 3600
+
+    /// Posts the notifications `SummaryAlerts` says are due, once each, and keeps its memory in
+    /// `app_state`. Each one is already an in-app notice through `refreshSummaryNotices`, so the
+    /// banner is not mirrored, and `.other` never raises the macOS question on its own.
+    private func postSummaryAlerts(
+        db: Database, order: [SummaryProvider], statuses: [SubscriptionTool: SubscriptionStatus],
+        signedOut: Set<SubscriptionTool>, summarizing: SummaryProvider?, waiting: Int?, now: Date
+    ) {
+        let store = AppStateStore(db)
+        let before = SummaryAlerts.Memory.decode((try? store.get(SummaryAlerts.memoryKey)) ?? nil)
+        let (alerts, after) = SummaryAlerts.due(
+            memory: before, order: order, statuses: statuses, signedOut: signedOut, waiting: waiting, now: now)
+        if after != before { try? store.set(SummaryAlerts.memoryKey, after.encoded) }
+        for alert in alerts {
+            switch alert {
+            case .signInEnding(let tool, let expiresAt):
+                postBanner(
+                    title: NotificationCopy.signInEndingTitle(tool),
+                    body: NotificationCopy.signInEndingBody(
+                        tool, expiresAt: expiresAt, now: now,
+                        timeZone: .autoupdatingCurrent, locale: .autoupdatingCurrent),
+                    identifier: "summary-sign-in-ending-\(tool.rawValue)",
+                    mirrorAsNotice: false, moment: .other)
+            case .signInEnded(let tool):
+                postBanner(
+                    title: NotificationCopy.signInEndedTitle(tool),
+                    body: NotificationCopy.signInEndedBody(tool, summarizing: summarizing),
+                    identifier: "summary-sign-in-ended-\(tool.rawValue)",
+                    mirrorAsNotice: false, moment: .other)
+            case .screenshotsWaiting(let count):
+                postBanner(
+                    title: NotificationCopy.screenshotsWaitingTitle,
+                    body: NotificationCopy.screenshotsWaitingBody(count, locale: .autoupdatingCurrent),
+                    identifier: "summary-screenshots-waiting",
+                    mirrorAsNotice: false, moment: .other)
+            }
+        }
+    }
+
+    /// Tells the day's rollover why waiting screenshots are waiting, and puts the ones set aside
+    /// as `unavailable` back in the queue when something can summarize again.
+    private func settleUnavailable(
+        db: Database, order: [SummaryProvider], skips: [SummaryNotices.Skip],
+        signedOut: Set<SubscriptionTool>, summarizing: SummaryProvider?, now: Date
+    ) {
+        let reason = SummaryAlerts.staleReason(order: order, skips: skips, signedOut: signedOut, now: now)
+        if let cost { Task { await cost.setStaleReason(reason) } }
+        let available = summarizing != nil
+        defer { summaryAvailable = available }
+        guard available, summaryAvailable != true else { return }
+        let requeued = (try? CaptureStore(db).requeueUnavailableSkipped()) ?? 0
+        guard requeued > 0 else { return }
+        Log.ui.info("summaries: \(requeued) screenshots set aside while nothing could summarize are waiting again")
+        Task { await describe?.nudge() }
     }
 }

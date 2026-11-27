@@ -163,6 +163,27 @@ private extension Config {
             },
             read: { String($0.summaryBatchMax) }
         ),
+        ConfigKey(
+            name: "SUBSCRIPTION_HEADROOM_PERCENT",
+            section: .describe,
+            kind: .int,
+            default: String(PlanHeadroom.defaultPercent),
+            help: "Stop summarizing through a Claude plan once a window is this full. 10 to 100.",
+            docs: """
+                Worklens stops summarizing through your Claude plan once its five-hour or weekly
+                window is this many percent used, and leaves the rest for your own work until the
+                window resets; the next way of summarizing in SUMMARY_PROVIDERS takes over. 100
+                uses the whole plan. 10 to 100.
+                """,
+            minimum: Double(PlanHeadroom.percentRange.lowerBound),
+            maximum: Double(PlanHeadroom.percentRange.upperBound),
+            apply: { c, v, _ in
+                c.subscriptionHeadroomPercent = try Config.int(
+                    "SUBSCRIPTION_HEADROOM_PERCENT", v, default: c.subscriptionHeadroomPercent
+                )
+            },
+            read: { String($0.subscriptionHeadroomPercent) }
+        ),
     ]
 }
 

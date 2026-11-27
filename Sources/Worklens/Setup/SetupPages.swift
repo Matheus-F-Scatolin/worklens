@@ -297,7 +297,7 @@ struct SetupKeysPage: View {
                         .textSelection(.enabled)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(.quaternary))
+                        .background(RoundedRectangle(cornerRadius: Theme.Layout.cornerRadius).fill(.quaternary))
                     Button(copied == tool ? SetupCopy.copiedLabel : SetupCopy.copyLabel) {
                         model.copySignInCommand(tool.loginCommand)
                         copied = tool

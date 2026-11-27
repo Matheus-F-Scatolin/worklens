@@ -9,6 +9,20 @@ public protocol VisionDescriber: Sendable {
     /// be told (#87 retired `DESCRIBE_PROVIDER`, which only ever labelled the row).
     var provider: String { get }
     func describe(_ request: DescribeRequest) async throws -> DescribeResponse
+
+    /// Whether a call is billed per token. `DAILY_BUDGET_USD` stops only these: a call through
+    /// the person's own Claude or ChatGPT plan records `$0` and is never held by the budget.
+    var costsMoney: Bool { get }
+
+    /// Until when this describer would rather not be called although it could answer: a Claude
+    /// plan whose window is fuller than `SUBSCRIPTION_HEADROOM_PERCENT` (`PlanHeadroom`). Nil
+    /// to call it.
+    func headroomUntil(now: Date) -> Date?
+}
+
+public extension VisionDescriber {
+    var costsMoney: Bool { true }
+    func headroomUntil(now: Date) -> Date? { nil }
 }
 
 /// One screenshot in a request. A single-screenshot request carries one with no label, the way

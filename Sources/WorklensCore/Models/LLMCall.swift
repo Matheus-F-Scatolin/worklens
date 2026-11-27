@@ -147,3 +147,16 @@ public struct DailySpend: Sendable, Equatable, Identifiable {
         usd(.taxonomy) + usd(.chat) + usd(.rangeResolve) + usd(.verify)
     }
 }
+
+/// One summarizer's share of a stretch of time (Settings → Usage).
+public struct ProviderUsage: Sendable, Equatable {
+    public var calls: Int
+    public var screenshots: Int
+    public var costUSD: Double
+
+    public init(calls: Int = 0, screenshots: Int = 0, costUSD: Double = 0) {
+        self.calls = calls
+        self.screenshots = screenshots
+        self.costUSD = costUSD
+    }
+}

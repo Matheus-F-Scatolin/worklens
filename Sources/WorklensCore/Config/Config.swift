@@ -446,6 +446,9 @@ public struct Config: Sendable, Equatable {
     public var summaryBatchMinutes: Int = SummaryBatching.defaultMinutes
     /// `SUMMARY_BATCH_MAX`: at most this many screenshots in one call, 1 to 20.
     public var summaryBatchMax: Int = SummaryBatching.defaultMaxSize
+    /// `SUBSCRIPTION_HEADROOM_PERCENT`: how full a Claude plan window may get before Worklens
+    /// leaves the rest to the person, 10 to 100 (`PlanHeadroom`).
+    public var subscriptionHeadroomPercent: Int = PlanHeadroom.defaultPercent
 
     // Capture
     public var captureIntervalSeconds: Int

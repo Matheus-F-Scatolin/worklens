@@ -26,13 +26,19 @@ public enum SkipReason: String, Codable, Sendable, CaseIterable, DatabaseValueCo
     /// The Mac was asleep (#313). Rows before it say `locked` for sleep too; they are not
     /// rewritten. Recorded idle, so everything downstream treats it the way it treats `locked`.
     case asleep
+    /// Nothing could summarize it for three days: every Claude or ChatGPT plan in
+    /// `SUMMARY_PROVIDERS` was signed out, at its limit or left for your own work, and nothing that
+    /// costs money was there to take over (Part 4). Not the budget: `budget` stays the reason when
+    /// Gemini could have summarized it and the budget stopped it. Put back in the queue, while the
+    /// JPEG is on disk, as soon as a summarizer is available again.
+    case unavailable
 
     /// True for `blocked` and every refinement of it — what a caller that only cares whether the
     /// frame was blocked should ask, so a new list does not need a new comparison everywhere.
     public var isBlocked: Bool {
         switch self {
         case .blocked, .blockedBundle, .blockedTitle, .blockedHost, .blockedHostUnknown: return true
-        case .unchanged, .idle, .locked, .asleep, .budget, .noText: return false
+        case .unchanged, .idle, .locked, .asleep, .budget, .noText, .unavailable: return false
         }
     }
 }

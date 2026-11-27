@@ -91,6 +91,24 @@ until the reset time the command gave (or for a quarter of an hour, when it gave
 connected way summarizes meanwhile; with none, screenshots wait and are summarized after the
 reset. Nothing is lost. To have a fallback, connect a second way in Settings → Connections.
 
+## Worklens is leaving your plan for your own work
+
+Claude reports how full each of your plan's usage windows is. Once one is fuller than the
+headroom setting (80% unless you change it in Settings → Advanced → **Summaries**, or
+`SUBSCRIPTION_HEADROOM_PERCENT`), Worklens stops summarizing through that plan until the window
+resets, so the rest of it stays yours. Another connected way summarizes meanwhile; with none,
+screenshots wait and are summarized after the reset. Set it to 100 to use the whole window.
+ChatGPT does not report its windows to Worklens, so a ChatGPT plan is skipped only once it
+actually hits its limit.
+
+## Your Claude sign-in ends soon
+
+`claude auth status` says when your sign-in runs out. Worklens tells you three days before and
+again the day before, as a notification when notifications are allowed and as a notice in the
+app. Run `claude auth login` in Terminal yourself before then; Worklens never runs it. A new
+sign-in starts the warnings over. Worklens reads the status when it opens and every six hours.
+Codex does not say when its sign-in ends, so for ChatGPT you hear only once it has stopped.
+
 ## Screenshots are waiting to be summarized
 
 More than a hundred screenshots older than an hour are still waiting. Screenshots that are only
@@ -98,6 +116,11 @@ waiting for the next turn are not counted: a backlog this size means summarizing
 stopped for a while. Settings → Connections → **Summaries** shows each way's last summary and its
 last error, which is usually the reason: a sign-in that stopped working or a plan at its limit.
 `worklens describe-pending` summarizes the backlog from a terminal.
+
+When nothing could summarize them (every connected way signed out or at its limit), screenshots
+waiting longer than 72 hours are set aside, and summarized as soon as a way works again, for as
+long as the screenshot file is still on disk. Screenshots the day's budget stopped are set aside
+after 24 hours, as before ([the budget section](#frames-pile-up-as-pending-or-over-budget)).
 
 ## The menu says the data directory is in a synced folder
 
