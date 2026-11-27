@@ -67,9 +67,20 @@ public final class CodexDescriber: VisionDescriber {
     public static func arguments(
         model: String?, systemInstruction: String, imageFile: URL, schemaFile: URL, workingDirectory: URL
     ) -> [String] {
-        var arguments = [
-            "exec",
-            "--image=\(imageFile.path)",
+        arguments(
+            model: model, systemInstruction: systemInstruction, imageFiles: [imageFile],
+            schemaFile: schemaFile, workingDirectory: workingDirectory
+        )
+    }
+
+    /// A batch attaches every picture with its own `--image`, in the order the prompt numbers
+    /// them ("image 2 of 5"); a path names a screenshot file, never what is on it.
+    public static func arguments(
+        model: String?, systemInstruction: String, imageFiles: [URL], schemaFile: URL, workingDirectory: URL
+    ) -> [String] {
+        var arguments = ["exec"]
+        arguments += imageFiles.map { "--image=\($0.path)" }
+        arguments += [
             "--json",
             "--ephemeral",
             "--ignore-user-config",
@@ -150,14 +161,18 @@ public final class CodexDescriber: VisionDescriber {
         var cleanup: [URL] = []
         defer { for url in cleanup { try? FileManager.default.removeItem(at: url) } }
 
-        let imageFile: URL
-        if let existing = request.imageFile, FileManager.default.isReadableFile(atPath: existing.path) {
-            imageFile = existing
-        } else if let jpeg = request.imageJPEG {
-            imageFile = try workspace.writeTemporary(jpeg, suffix: "jpg")
-            cleanup.append(imageFile)
-        } else {
+        guard !request.images.isEmpty else {
             throw LLMError.badRequest(400, "codex needs a screenshot")
+        }
+        var imageFiles: [URL] = []
+        for image in request.images {
+            if let existing = image.file, FileManager.default.isReadableFile(atPath: existing.path) {
+                imageFiles.append(existing)
+            } else {
+                let written = try workspace.writeTemporary(image.jpeg, suffix: "jpg")
+                cleanup.append(written)
+                imageFiles.append(written)
+            }
         }
         let schemaData = Data(ClaudeDescriber.compactJSON(Self.strictSchema(request.schema)).utf8)
         let schemaFile = try workspace.writeTemporary(schemaData, suffix: "json")
@@ -168,7 +183,7 @@ public final class CodexDescriber: VisionDescriber {
             executable: executable,
             arguments: Self.arguments(
                 model: model, systemInstruction: request.systemInstruction,
-                imageFile: imageFile, schemaFile: schemaFile, workingDirectory: workspace.emptyDirectory
+                imageFiles: imageFiles, schemaFile: schemaFile, workingDirectory: workspace.emptyDirectory
             ),
             stdin: Data(request.userPrompt.utf8),
             workingDirectory: workspace.emptyDirectory,

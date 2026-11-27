@@ -11,20 +11,45 @@ public protocol VisionDescriber: Sendable {
     func describe(_ request: DescribeRequest) async throws -> DescribeResponse
 }
 
+/// One screenshot in a request. A single-screenshot request carries one with no label, the way
+/// a describe call always looked; a batch (`SUMMARY_BATCH`) carries several, in capture order,
+/// each labelled the way the prompt names it ("Screenshot 3 of 7, 14:32:10") so the model can
+/// tell which picture is which.
+public struct DescribeImage: Sendable, Equatable {
+    /// The capture this picture is of. Nil on a single-screenshot request.
+    public let frameId: String?
+    /// The label the describer puts next to the picture, nil for none.
+    public let label: String?
+    public let jpeg: Data
+    /// Where `jpeg` already sits on disk, when it came from there. `codex exec --image` takes
+    /// files, so the Codex summarizer points at the screenshot in place rather than writing a
+    /// second copy; every other describer ignores it.
+    public let file: URL?
+
+    public init(frameId: String? = nil, label: String? = nil, jpeg: Data, file: URL? = nil) {
+        self.frameId = frameId
+        self.label = label
+        self.jpeg = jpeg
+        self.file = file
+    }
+}
+
 public struct DescribeRequest: Sendable {
-    /// Nil for a frame described from the focused window's text alone (#54), which is most of
-    /// them once `CAPTURE_SOURCE` stops taking pictures of fully covered windows.
-    public let imageJPEG: Data?
-    /// Where `imageJPEG` already sits on disk, when it came from there. `codex exec --image`
-    /// takes files, so the Codex summarizer points at the screenshot in place rather than
-    /// writing a second copy; every other describer ignores it.
-    public let imageFile: URL?
+    /// The pictures, in order. Empty for a frame described from the focused window's text alone
+    /// (#54), which is most of them once `CAPTURE_SOURCE` stops taking pictures of fully covered
+    /// windows; in a batch, only the screenshots that send a picture are here.
+    public let images: [DescribeImage]
     public let systemInstruction: String
     public let userPrompt: String
     /// JSON Schema the answer must satisfy. Built per request so the `app_key`/`task_key`
     /// enums can be exactly the keys this frame is allowed to use.
     public let schema: JSONValue
     public let maxOutputTokens: Int
+
+    /// The first picture: the only one a single-screenshot request has.
+    public var imageJPEG: Data? { images.first?.jpeg }
+    /// Where the first picture sits on disk.
+    public var imageFile: URL? { images.first?.file }
 
     public init(
         imageJPEG: Data?,
@@ -34,19 +59,44 @@ public struct DescribeRequest: Sendable {
         schema: JSONValue,
         maxOutputTokens: Int = 400
     ) {
-        self.imageJPEG = imageJPEG
-        self.imageFile = imageJPEG == nil ? nil : imageFile
+        self.init(
+            images: imageJPEG.map { [DescribeImage(jpeg: $0, file: imageFile)] } ?? [],
+            systemInstruction: systemInstruction, userPrompt: userPrompt, schema: schema,
+            maxOutputTokens: maxOutputTokens
+        )
+    }
+
+    public init(
+        images: [DescribeImage],
+        systemInstruction: String,
+        userPrompt: String,
+        schema: JSONValue,
+        maxOutputTokens: Int = 400
+    ) {
+        self.images = images
         self.systemInstruction = systemInstruction
         self.userPrompt = userPrompt
         self.schema = schema
         self.maxOutputTokens = maxOutputTokens
     }
 
+    /// Whether the pictures carry labels, which only a batch does.
+    public var isBatch: Bool { images.contains { $0.label != nil } }
+
     /// The same request, noting where its screenshot sits on disk.
     public func withImageFile(_ url: URL?) -> DescribeRequest {
+        withImages(images.enumerated().map { index, image in
+            index == 0
+                ? DescribeImage(frameId: image.frameId, label: image.label, jpeg: image.jpeg, file: url)
+                : image
+        })
+    }
+
+    /// The same request with other pictures.
+    public func withImages(_ images: [DescribeImage]) -> DescribeRequest {
         DescribeRequest(
-            imageJPEG: imageJPEG, imageFile: url, systemInstruction: systemInstruction,
-            userPrompt: userPrompt, schema: schema, maxOutputTokens: maxOutputTokens
+            images: images, systemInstruction: systemInstruction, userPrompt: userPrompt,
+            schema: schema, maxOutputTokens: maxOutputTokens
         )
     }
 }

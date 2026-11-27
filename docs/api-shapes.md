@@ -43,6 +43,14 @@ key fit, and the listed key when one did:
 `project_key` is optional (not in `required`) and is left out of the schema entirely when the
 catalog is empty.
 
+**A batch** (prompt `d6`, `SUMMARY_BATCH`; built here, not checked live): the same request, with
+`contents[0].parts` holding the prompt text first and then, for each picture, a `text` part with
+its label (`Screenshot 3 of 7, 14:32:10`) followed by its `inline_data` part. The schema wraps one
+screenshot's properties in an array, each entry with an `id` enum of the batch's capture ids:
+`{"type":"object","properties":{"screenshots":{"type":"array","items":{…,"properties":{"id":…}}}},"required":["screenshots"]}`.
+`claude -p` gets the same label-then-image blocks on stdin; `codex exec` gets one `--image=` per
+picture, in prompt order.
+
 **MCP** — what Worklens' own server speaks, checked against the 2025-06-18 revision on
 2026-09-18 and the 2025-11-25 lifecycle page on 2026-09-24. `initialize` echoes the client's
 `protocolVersion` when it is one of those two and answers `2025-11-25` otherwise, and returns

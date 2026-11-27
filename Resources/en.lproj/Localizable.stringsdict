@@ -267,5 +267,21 @@
 			<string>%lld patterns</string>
 		</dict>
 	</dict>
+	<key>up to %lld screenshots</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>up to %lld screenshot</string>
+			<key>other</key>
+			<string>up to %lld screenshots</string>
+		</dict>
+	</dict>
 </dict>
 </plist>

@@ -79,27 +79,47 @@ public final class ClaudeDescriber: VisionDescriber {
     /// names, and `--json-schema` only takes the schema inline, where `ps` can read it. The
     /// prompt on stdin still lists the keys, and `DescribeWorker.store` drops any key the
     /// catalog does not know, so the answer is held to the same list either way.
+    ///
+    /// Walks the whole schema, because a batch nests the per-screenshot fields under
+    /// `screenshots.items`, and the project list must stay off argv there too.
     public static func argvSafe(_ schema: JSONValue) -> JSONValue {
-        guard case var .object(root) = schema,
-              case var .object(properties)? = root["properties"],
-              case var .object(project)? = properties["project_key"] else { return schema }
-        project["enum"] = nil
-        properties["project_key"] = .object(project)
-        root["properties"] = .object(properties)
-        return .object(root)
+        switch schema {
+        case let .object(object):
+            var copy: [String: JSONValue] = [:]
+            for (key, value) in object {
+                if key == "properties", case var .object(properties) = value {
+                    if case var .object(project)? = properties["project_key"] {
+                        project["enum"] = nil
+                        properties["project_key"] = .object(project)
+                    }
+                    copy[key] = argvSafe(.object(properties))
+                } else {
+                    copy[key] = argvSafe(value)
+                }
+            }
+            return .object(copy)
+        case let .array(values):
+            return .array(values.map(argvSafe))
+        default:
+            return schema
+        }
     }
 
     /// One stream-json user message: the prompt as a text block, then the screenshot as a
-    /// base64 `image` block.
+    /// base64 `image` block. A batch puts a text block with each picture's label
+    /// ("Screenshot 3 of 7, 14:32:10") before that picture, in the order the prompt lists them.
     public static func stdin(for request: DescribeRequest) -> Data {
         var content: [JSONValue] = [["type": "text", "text": .string(request.userPrompt)]]
-        if let jpeg = request.imageJPEG {
+        for image in request.images {
+            if let label = image.label {
+                content.append(["type": "text", "text": .string(label)])
+            }
             content.append([
                 "type": "image",
                 "source": [
                     "type": "base64",
                     "media_type": "image/jpeg",
-                    "data": .string(jpeg.base64EncodedString()),
+                    "data": .string(image.jpeg.base64EncodedString()),
                 ],
             ])
         }

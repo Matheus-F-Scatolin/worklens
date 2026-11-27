@@ -66,7 +66,7 @@ struct DescribeStack {
                 schema: request.schema
             )
             var stdin = String(decoding: ClaudeDescriber.stdin(for: request), as: UTF8.self)
-            if let jpeg = request.imageJPEG {
+            for jpeg in request.images.map(\.jpeg) {
                 stdin = stdin.replacingOccurrences(
                     of: jpeg.base64EncodedString(), with: "<\(jpeg.count) bytes of JPEG, base64>"
                 )
@@ -78,8 +78,11 @@ struct DescribeStack {
             let arguments = CodexDescriber.arguments(
                 model: "<newest gpt-*-\(config.codexSummaryModel)>",
                 systemInstruction: request.systemInstruction,
-                imageFile: request.imageFile
-                    ?? workspace.temporaryDirectory.appendingPathComponent("<screenshot>.jpg"),
+                imageFiles: request.images.isEmpty
+                    ? [workspace.temporaryDirectory.appendingPathComponent("<screenshot>.jpg")]
+                    : request.images.map {
+                        $0.file ?? workspace.temporaryDirectory.appendingPathComponent("<screenshot>.jpg")
+                    },
                 schemaFile: workspace.temporaryDirectory.appendingPathComponent("<schema>.json"),
                 workingDirectory: workspace.emptyDirectory
             )
@@ -152,13 +155,13 @@ struct DescribeStack {
 struct DescribePendingCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "describe-pending",
-        abstract: "Describe queued captures: one vision call each, free copies for unchanged frames."
+        abstract: "Describe queued captures: one vision call each, or one per batch, free copies for unchanged frames."
     )
 
-    @Option(help: "How many pending captures to process.")
+    @Option(help: "How many calls to make: one capture each, or one batch each when SUMMARY_BATCH batches.")
     var limit: Int = DescribeWorker.batchSize
 
-    @Flag(help: "Print the prompt and schema for the first pending capture without calling the API.")
+    @Flag(help: "Print the prompt and schema for the next call (one capture, or the next batch) without calling the API.")
     var dryRun = false
 
     @Flag(help: """
@@ -175,10 +178,15 @@ struct DescribePendingCommand: AsyncParsableCommand {
         if fake { print("--fake: describing with the offline fake provider. \(FakeProvider.marker).\n") }
 
         if dryRun {
-            guard let prepared = try await stack.worker.prepareFirstPending() else {
+            guard let next = try await stack.worker.prepareNextCall() else {
                 print("nothing pending")
                 return
             }
+            if next.captures.count > 1 {
+                printBatch(next.captures, request: next.request, config: stack.config)
+                return
+            }
+            let prepared = try await stack.worker.prepare(captureId: next.captures[0].id)
             print("capture    \(prepared.capture.id)")
             print("captured   \(prepared.capture.capturedAt)")
             print("app_key    \(prepared.resolved?.appKey ?? "(unresolved)")")
@@ -204,9 +212,35 @@ struct DescribePendingCommand: AsyncParsableCommand {
             return
         }
 
-        let outcomes = try await stack.worker.runCycle(limit: limit)
+        // Run by hand, the queue is summarized now: a batch still waiting on its timer goes too.
+        let outcomes = try await stack.worker.runCycle(limit: limit, flush: true)
         await stack.flushTimeline()
         DescribeStack.report(outcomes)
+    }
+
+    /// The dry run of a batch (`SUMMARY_BATCH`): which captures, then the one request.
+    private func printBatch(_ captures: [Capture], request: DescribeRequest, config: Config) {
+        print("batch      \(captures.count) captures, \(request.images.count) with an image (SUMMARY_BATCH=\(SummaryBatching.mode(config).rawValue))")
+        for capture in captures {
+            print("capture    \(capture.id)  \(capture.capturedAt)")
+        }
+        let bytes = request.images.map(\.jpeg.count).reduce(0, +)
+        print("images     \(request.images.isEmpty ? "none (described from text)" : "\(bytes / 1024) KB in all")")
+        print("")
+        print("--- system instruction ---")
+        print(request.systemInstruction)
+        print("")
+        print("--- user prompt ---")
+        print(request.userPrompt)
+        print("")
+        print("--- response schema ---")
+        print(DescribePrompt.prettyJSON(request.schema))
+        if let chosen = provider ?? SummaryProviders.effective(config).first,
+           let preview = DescribeStack.commandPreview(request, provider: chosen, config: config) {
+            print("")
+            print("=== as sent to \(chosen.rawValue) ===")
+            print(preview)
+        }
     }
 }
 

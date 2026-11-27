@@ -32,6 +32,13 @@ and opening a fresh empty one above it.
   stopped working, when a plan hit its limit (and who summarizes meanwhile), and when screenshots
   have waited more than an hour; each links its troubleshooting section. `scripts/setup.sh`
   no longer warns about a missing Gemini key when `claude` or `codex` is signed in.
+- **Several screenshots in one summary call.** `SUMMARY_BATCH` sends what you captured in one
+  app (`app_switch`) or over a few minutes (`every`) as one request, each screenshot labelled
+  and summarized on its own, so a Claude or ChatGPT plan's limits last longer. `each` keeps one
+  screenshot per call. Unset, it is `app_switch` when `claude` or `codex` summarizes first and
+  `each` for Gemini, so a Gemini-only install is unchanged. `SUMMARY_BATCH_MINUTES` (1, 5, 15 or
+  30) is the longest a batch waits and `SUMMARY_BATCH_MAX` (1–20) its size; all three are in
+  Settings → Advanced → Summaries. The prompt is now `d6`.
 - **Google Calendar setup starts with Copy setup prompt.** It copies a prompt for Claude Code
   or Codex that sets up the Google Cloud project, API, consent screen and OAuth client in your
   browser, stops for every sign-in or confirmation, and ends by telling you the two values to

@@ -7,7 +7,9 @@ import Foundation
 /// `version` is stored in `descriptions.raw_json`, so a day's rows can always
 /// be traced back to the wording that produced them.
 public enum DescribePrompt {
-    public static let version = "d5"
+    /// d6: the batch prompt (`SUMMARY_BATCH`) and its `screenshots` schema. A single-screenshot
+    /// request reads exactly as d5 did; only the stamp moved, so a row says which build wrote it.
+    public static let version = "d6"
     public static let maxOutputTokens = 400
     /// How far back the run — and the one line before it — may reach (#65).
     public static let runContextWindow: TimeInterval = 90 * 60
@@ -489,7 +491,23 @@ public enum DescribePrompt {
             appKeys = taxonomy.allAppKeys + ["other"]
             taskKeys = taxonomy.universalTaskKeys
         }
+        let projectKeys = (projects ?? promptProjects(taxonomy.projectList)).map(\.key)
+        return .object([
+            "type": .string("object"),
+            "additionalProperties": .bool(false),
+            "properties": .object(frameProperties(appKeys: appKeys, taskKeys: taskKeys, projectKeys: projectKeys)),
+            "required": .array(frameRequired.map(JSONValue.string)),
+        ])
+    }
 
+    /// What every summary must carry, one screenshot's worth.
+    static let frameRequired = ["app_key", "task_key", "summary", "is_meeting", "is_sensitive"]
+
+    /// One screenshot's answer: the fields `schema` asks for, with the enums given. Shared by the
+    /// single-screenshot schema and each entry of a batch's.
+    static func frameProperties(
+        appKeys: [String], taskKeys: [String], projectKeys: [String]
+    ) -> [String: JSONValue] {
         func enumString(_ values: [String], _ description: String) -> JSONValue {
             .object([
                 "type": .string("string"),
@@ -527,7 +545,7 @@ public enum DescribePrompt {
         ]
         // #315: null inside the enum is how "none of these" is said; confirmed with a live call
         // on 2026-10-07 (docs/api-shapes.md).
-        let keys = uniqued((projects ?? promptProjects(taxonomy.projectList)).map(\.key))
+        let keys = uniqued(projectKeys)
         if !keys.isEmpty {
             properties["project_key"] = .object([
                 "type": .array([.string("string"), .string("null")]),
@@ -535,18 +553,10 @@ public enum DescribePrompt {
                 "description": .string("Key of the known project this frame is about, or null."),
             ])
         }
-
-        return .object([
-            "type": .string("object"),
-            "additionalProperties": .bool(false),
-            "properties": .object(properties),
-            "required": .array([
-                "app_key", "task_key", "summary", "is_meeting", "is_sensitive",
-            ].map(JSONValue.string)),
-        ])
+        return properties
     }
 
-    private static func uniqued(_ values: [String]) -> [String] {
+    static func uniqued(_ values: [String]) -> [String] {
         var seen: Set<String> = []
         return values.filter { seen.insert($0).inserted }
     }

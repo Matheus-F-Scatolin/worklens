@@ -24,7 +24,7 @@ worklens app                                  # launch the menu-bar app (install
 worklens capture-once --out frame.png         # one screenshot; --display main|mouse
 worklens settings [--tab capture]             # front the running app's window on Settings
 
-worklens describe-pending --dry-run           # print the exact prompt for the next frame, call nothing
+worklens describe-pending --dry-run           # print the exact prompt for the next call (a frame, or a batch), call nothing
 worklens describe-pending --fake              # describe with the offline fake: no key, no network, $0
 worklens describe-one 4812                    # describe one capture by id, whatever its state
 

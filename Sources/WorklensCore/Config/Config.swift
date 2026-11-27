@@ -440,6 +440,12 @@ public struct Config: Sendable, Equatable {
     public var claudeSummaryModel: String = "sonnet"
     /// `CODEX_SUMMARY_MODEL`: the family, `sol` or `luna`.
     public var codexSummaryModel: String = "sol"
+    /// `SUMMARY_BATCH`: nil (unset) follows the first summarizer, see `SummaryBatching.mode`.
+    public var summaryBatch: SummaryBatchMode?
+    /// `SUMMARY_BATCH_MINUTES`: 1, 5, 15 or 30.
+    public var summaryBatchMinutes: Int = SummaryBatching.defaultMinutes
+    /// `SUMMARY_BATCH_MAX`: at most this many screenshots in one call, 1 to 20.
+    public var summaryBatchMax: Int = SummaryBatching.defaultMaxSize
 
     // Capture
     public var captureIntervalSeconds: Int

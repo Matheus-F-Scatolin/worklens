@@ -40,6 +40,10 @@ public struct LLMCall: Codable, FetchableRecord, PersistableRecord, Sendable, Eq
     /// `LLMCallStore.insert` when the caller leaves it nil, so a price change is auditable
     /// afterwards instead of quietly rewriting history. Nil on rows written before migration v2.
     public var pricingVersion: String?
+    /// How many screenshots the call summarized: 1 for every call but a batched summary
+    /// (`SUMMARY_BATCH`), whose single row stands for the whole batch. 1 on rows written before
+    /// the column existed.
+    public var frames: Int
     public var createdAt: Date
 
     public init(
@@ -56,6 +60,7 @@ public struct LLMCall: Codable, FetchableRecord, PersistableRecord, Sendable, Eq
         httpStatus: Int? = nil,
         error: String? = nil,
         pricingVersion: String? = nil,
+        frames: Int = 1,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -71,6 +76,7 @@ public struct LLMCall: Codable, FetchableRecord, PersistableRecord, Sendable, Eq
         self.httpStatus = httpStatus
         self.error = error
         self.pricingVersion = pricingVersion
+        self.frames = frames
         self.createdAt = createdAt
     }
 
