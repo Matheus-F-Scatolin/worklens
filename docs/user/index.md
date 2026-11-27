@@ -6,11 +6,11 @@ what leaves the Mac.
 
 | Page | What it answers |
 |---|---|
-| [setup.md](setup.md) | requirements, the one-command install, the six steps only you can do, where the Gemini API key comes from, and the one-command uninstall |
+| [setup.md](setup.md) | requirements, the one-command install, the steps only you can do, the three ways to summarize (a Claude or ChatGPT plan, or a Gemini API key), and the one-command uninstall |
 | [first-day.md](first-day.md) | minute 0 to the first full day: the welcome window, granting Screen Recording, what to expect in the first hour and tomorrow |
 | [permissions.md](permissions.md) | which permissions macOS asks for, why each one, and why it re-asks for Screen Recording monthly |
 | [configuration.md](configuration.md) | the six configuration layers, `worklens config`, and why `DATA_DIR` is the one key Worklens never writes for itself |
-| [cost.md](cost.md) | what a day costs at the defaults, the hard stop, and how to make it cheaper |
+| [cost.md](cost.md) | no bill with a Claude or ChatGPT plan, what a day costs with a Gemini key, the hard stop, and how to make it cheaper |
 | [data.md](data.md) | what is in `DATA_DIR`, why it must not be in a synced folder, and how to move it to another Mac |
 | [integrations.md](integrations.md) | Granola and Google Calendar — one page each, with what is stored and what is sent |
 | [claude-desktop.md](claude-desktop.md) | pointing Claude Desktop at the read-only MCP server so you can ask about your own day |

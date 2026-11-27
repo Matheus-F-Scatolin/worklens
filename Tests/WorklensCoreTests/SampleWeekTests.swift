@@ -593,20 +593,20 @@ struct SampleWeekTests {
 
     @Test("the ribbon's status line names what is missing in the menu's words")
     func statusLine() {
-        let done = SetupProgress(screenRecording: true, geminiKey: true, onboardedAt: Self.wednesday)
+        let done = SetupProgress(screenRecording: true, summaries: true, onboardedAt: Self.wednesday)
         let line = { (setup: SetupProgress, scheduler: SchedulerState) in
             SampleWeekHandoff.statusLine(
                 setup: setup, handedOff: false, scheduler: scheduler, now: Self.wednesday, locale: Format.fixed
             )
         }
-        #expect(line(SetupProgress(screenRecording: true, geminiKey: true), .running) == nil)
+        #expect(line(SetupProgress(screenRecording: true, summaries: true), .running) == nil)
         #expect(line(done, .running) == SampleWeekCopy.firstMoments)
         #expect(line(done, .idle) == SampleWeekCopy.firstMoments)
         var noGrant = done
         noGrant.screenRecording = false
         #expect(line(noGrant, .running) == "Screen Recording permission needed")
         var noKey = done
-        noKey.geminiKey = false
+        noKey.summaries = false
         #expect(line(noKey, .running) == MenuModel.firstRunText)
         #expect(line(done, .paused(until: nil)) == "Paused until you resume")
         #expect(line(done, .budgetExceeded) == "Budget reached: screenshots on hold")
@@ -621,7 +621,7 @@ struct SampleWeekTests {
 
     @Test("an empty page that is still now says it fills in by itself, or what is in the way")
     func emptyDetail() {
-        let done = SetupProgress(screenRecording: true, geminiKey: true, onboardedAt: Self.wednesday)
+        let done = SetupProgress(screenRecording: true, summaries: true, onboardedAt: Self.wednesday)
         let today = DayBoundaries.dayString(Self.wednesday)
         let detail = { (selection: ReaderSelection?, setup: SetupProgress, scheduler: SchedulerState) in
             ReaderShellCopy.emptyDetail(

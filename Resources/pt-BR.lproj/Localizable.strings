@@ -103,8 +103,6 @@
 "Write this week's report" = "Escrever o relatório desta semana";
 
 /* Advisory and problem rows */
-"Add your Gemini API key to get started" = "Adicione sua chave de API do Gemini para começar";
-"Add your Gemini API key…" = "Adicionar sua chave de API do Gemini…";
 "%@ needs attention: reconnect it in Settings" = "%@ precisa de atenção: reconecte-o nos Ajustes";
 "%@ need attention: reconnect them in Settings" = "%@ precisam de atenção: reconecte-os nos Ajustes";
 "%@ and %@" = "%@ e %@";
@@ -140,10 +138,8 @@
 "Worklens does not start capturing on its own. Capture starts when you finish this window, or when you press “%@” in the menu." = "O Worklens não começa a capturar sozinho. A captura começa quando você conclui esta janela, ou quando você aperta “%@” no menu.";
 "Done" = "Concluir";
 "It takes a screenshot of the window you are in, about once a minute." = "Ele tira uma captura da janela em que você está, mais ou menos uma vez por minuto.";
-"Everything stays in one folder on this Mac. A screenshot goes to Gemini for a one-line description, and is deleted afterwards." = "Tudo fica em uma pasta neste Mac. Uma captura vai para o Gemini para ganhar uma descrição de uma linha, e é apagada depois.";
 "What Worklens records, in full" = "O que o Worklens registra, por inteiro";
 "Skip for now" = "Pular por enquanto";
-"Gemini describes each screenshot in a line or two, which is what makes your day searchable. Without this key Worklens still captures, and describes what it kept once you add one." = "O Gemini descreve cada captura em uma ou duas linhas, e é isso que torna o seu dia pesquisável. Sem esta chave o Worklens continua capturando, e descreve o que guardou assim que você adicionar uma.";
 "About $0.10 a day at the defaults. Settings → Usage shows what you have spent and stops at a daily budget you set." = "Cerca de US$ 0,10 por dia nos padrões. Ajustes → Uso mostra o que você gastou e para num orçamento diário que você define.";
 "Get a Gemini key" = "Obter uma chave do Gemini";
 "Worklens is capturing." = "O Worklens está capturando.";
@@ -182,9 +178,7 @@
 "Worklens captures the frontmost window of your own screen and describes it. Without this grant it records which app you were in and nothing of what was on screen." = "O Worklens captura a janela em primeiro plano da sua própria tela e a descreve. Sem esta permissão, ele registra em qual app você estava e nada do que havia na tela.";
 "Granted. Worklens can capture your screen." = "Concedido. O Worklens pode capturar a sua tela.";
 "Screen Recording is not granted, so nothing will be captured until it is. You can start anyway: the menu keeps offering the grant, and Settings → Capture has it too." = "A Gravação de Tela não foi concedida, então nada será capturado até que seja. Você pode começar mesmo assim: o menu continua oferecendo a permissão, e Ajustes → Captura também a tem.";
-"Gemini key" = "Chave do Gemini";
 "Finish this window" = "Concluir esta janela";
-"Required" = "Obrigatório";
 "Re-check" = "Verificar de novo";
 "Open System Settings" = "Abrir os Ajustes do Sistema";
 "Open Login Items" = "Abrir Itens de Início de Sessão";
@@ -336,3 +330,66 @@
 
 /* First-summary notification */
 "Worklens summarized your first screenshot: “%@” Click to open the Today page." = "O Worklens resumiu a sua primeira captura: “%@” Clique para abrir a página Hoje.";
+
+/* Summaries through a Claude or ChatGPT plan: what the person sees */
+"%@ connected" = "%@ conectado";
+"%@ disconnected" = "%@ desconectado";
+"%@ is installed but not signed in. Sign in with this command in Terminal, then come back." = "O %@ está instalado, mas sem login. Entre com este comando no Terminal e depois volte aqui.";
+"%@ is not installed on this Mac." = "O %@ não está instalado neste Mac.";
+"%@ is signed in with an API key, not your %@ plan. Sign in with your plan with this command in Terminal." = "O %@ entrou com uma chave de API, não com o seu plano %@. Entre com o seu plano usando este comando no Terminal.";
+"%@ screenshots are waiting to be summarized: Settings → Connections shows what each way of summarizing is doing." = "%@ capturas estão esperando resumo: Ajustes → Conexões mostra o que cada forma de resumir está fazendo.";
+"A key from Google AI Studio, billed to you per screenshot. Without any way to summarize, Worklens still captures, and summarizes what it kept once you connect one." = "Uma chave do Google AI Studio, cobrada de você por captura. Sem nenhuma forma de resumir, o Worklens continua capturando e resume o que guardou assim que você conectar uma.";
+"A way to summarize" = "Uma forma de resumir";
+"ChatGPT subscription" = "Assinatura do ChatGPT";
+"Check again" = "Verificar de novo";
+"Claude subscription" = "Assinatura do Claude";
+"Connected. Worklens summarizes with your %@ %@ plan." = "Conectado. O Worklens resume com o seu plano %@ %@.";
+"Connected. Worklens summarizes with your %@ plan." = "Conectado. O Worklens resume com o seu plano %@.";
+"Connected. Worklens summarizes with your Gemini key." = "Conectado. O Worklens resume com a sua chave do Gemini.";
+"Copy" = "Copiar";
+"Copy sign-in command" = "Copiar comando de login";
+"Each screenshot gets a one-line summary, which is what makes your day searchable. Worklens has no server and no account: it summarizes through a plan or a key you already have. Connect one; you can add the others later in Settings → Connections." = "Cada captura ganha um resumo de uma linha, e é isso que torna o seu dia pesquisável. O Worklens não tem servidor nem conta: ele resume por meio de um plano ou de uma chave que você já tem. Conecte um; você pode adicionar os outros depois em Ajustes → Conexões.";
+"Everything stays in one folder on this Mac. A screenshot goes to the service you connect (Claude, ChatGPT or Gemini) for a one-line summary, and is deleted afterwards." = "Tudo fica em uma pasta neste Mac. Uma captura vai para o serviço que você conectar (Claude, ChatGPT ou Gemini) para um resumo de uma linha, e é apagada depois.";
+"Gemini API key" = "Chave de API do Gemini";
+"Google did not take the last summary request. Worklens tries again in a few minutes." = "O Google não aceitou o último pedido de resumo. O Worklens tenta de novo em alguns minutos.";
+"How each screenshot gets its one-line summary. Worklens tries the connected ones in this order." = "Como cada captura ganha o seu resumo de uma linha. O Worklens tenta os conectados nesta ordem.";
+"Install Claude Code" = "Instalar o Claude Code";
+"Install Codex" = "Instalar o Codex";
+"I’ll pick one later" = "Escolho depois";
+"Last summary on %@ at %@" = "Último resumo em %@ às %@";
+"Last summary today at %@" = "Último resumo hoje às %@";
+"Move %@ down" = "Mover %@ para baixo";
+"Move %@ up" = "Mover %@ para cima";
+"No bill from Worklens: summaries count against your plan's usage limits, like your own use does." = "Nenhuma cobrança do Worklens: os resumos contam nos limites de uso do seu plano, como o seu próprio uso.";
+"Nothing is set up to summarize your screenshots: they are saved but not summarized. Connect Claude, ChatGPT or a Gemini key in Settings → Connections; docs/user/setup.md#summaries explains the three." = "Nada está configurado para resumir as suas capturas: elas ficam salvas, mas sem resumo. Conecte o Claude, o ChatGPT ou uma chave do Gemini em Ajustes → Conexões; docs/user/setup.md#summaries explica as três opções.";
+"Open Connections…" = "Abrir Conexões…";
+"Open Terminal" = "Abrir o Terminal";
+"Paste a key from a billing-enabled Gemini project." = "Cole uma chave de um projeto do Gemini com faturamento ativado.";
+"Pay Google per screenshot, about $3 a month" = "Pague ao Google por captura, cerca de US$ 3 por mês";
+"Pick how Worklens summarizes to get started" = "Escolha como o Worklens resume para começar";
+"Screenshots are waiting to be summarized." = "Há capturas esperando resumo.";
+"Signed in with your %@ %@ plan." = "Conectado com o seu plano %@ %@.";
+"Signed in with your %@ plan." = "Conectado com o seu plano %@.";
+"Signed out" = "Sem login";
+"Summary order" = "Ordem dos resumos";
+"The last summary through %@ did not work. Worklens tries again in a few minutes." = "O último resumo pelo %@ não funcionou. O Worklens tenta de novo em alguns minutos.";
+"The service you connect summarizes each screenshot: Claude through your Claude plan, ChatGPT through your ChatGPT plan, or Google's Gemini API with your key." = "O serviço que você conectar resume cada captura: o Claude pelo seu plano do Claude, o ChatGPT pelo seu plano do ChatGPT ou a API Gemini do Google com a sua chave.";
+"Try earlier" = "Tentar antes";
+"Try later" = "Tentar depois";
+"Uses your ChatGPT plan through Codex" = "Usa o seu plano do ChatGPT pelo Codex";
+"Uses your Claude plan through Claude Code" = "Usa o seu plano do Claude pelo Claude Code";
+"With a Claude or ChatGPT plan, that company's own terms for your plan apply, and whether it may train on your screenshots depends on your own setting with it. Google's paid Gemini API does not train on them." = "Com um plano do Claude ou do ChatGPT, valem os termos dessa empresa para o seu plano, e se ela pode treinar com as suas capturas depende da sua própria configuração lá. A API paga do Gemini, do Google, não treina com elas.";
+"Worklens tries %@ first, then %@, then %@. Settings → Connections changes the order." = "O Worklens tenta primeiro o %@, depois o %@ e depois o %@. Ajustes → Conexões muda a ordem.";
+"Worklens tries %@ first, then %@. Settings → Connections changes the order." = "O Worklens tenta primeiro o %@ e depois o %@. Ajustes → Conexões muda a ordem.";
+"You sign in yourself, in Terminal. Worklens never runs the sign-in or reads it, and Disconnect never signs you out." = "Você mesmo faz o login, no Terminal. O Worklens nunca executa o login nem o lê, e Desconectar nunca encerra a sua sessão.";
+"Your %@ plan hit its limit; %@ is summarizing for now." = "O seu plano %@ atingiu o limite; o %@ está resumindo por enquanto.";
+"Your %@ plan hit its limit; %@ is summarizing until %@." = "O seu plano %@ atingiu o limite; o %@ está resumindo até %@.";
+"Your %@ plan hit its limit; nothing is summarized until %@." = "O seu plano %@ atingiu o limite; nada é resumido até %@.";
+"Your %@ plan hit its limit; nothing is summarized until it resets." = "O seu plano %@ atingiu o limite; nada é resumido até ele renovar.";
+"Your %@ sign-in stopped working: run %@ in Terminal. %@ is summarizing for now." = "O seu login do %@ parou de funcionar: rode %@ no Terminal. O %@ está resumindo por enquanto.";
+"Your %@ sign-in stopped working: run %@ in Terminal. Nothing is summarized until you do." = "O seu login do %@ parou de funcionar: rode %@ no Terminal. Nada é resumido até você fazer isso.";
+"Your ChatGPT data controls" = "Os seus controles de dados do ChatGPT";
+"Your Claude privacy settings" = "As suas configurações de privacidade do Claude";
+"Your key is saved, but Worklens is not using it." = "A sua chave está salva, mas o Worklens não a está usando.";
+"Your plan hit its limit: summaries wait until it resets." = "O seu plano atingiu o limite: os resumos esperam até ele renovar.";
+"Your sign-in lasts until %@." = "O seu login vale até %@.";

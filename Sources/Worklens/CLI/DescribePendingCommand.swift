@@ -21,7 +21,7 @@ struct DescribeStack {
             if provider == .gemini || (provider == nil && config.summaryProviders.isEmpty) {
                 throw CLIFailure.config(
                     "GEMINI_API_KEY is not set. Put it in .env (a billing-enabled project: on the "
-                        + "free tier Google may train on your screenshots). docs/user/setup.md#keys "
+                        + "free tier Google may train on your screenshots). docs/user/setup.md#summaries "
                         + "says where to get one."
                 )
             }

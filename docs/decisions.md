@@ -878,6 +878,39 @@ Claude, then Codex, then Gemini.
   enum removed; Codex reads its schema from a 0600 file that is deleted after the call.
 - **Subscription calls are recorded at $0.** What a plan costs is not per call.
 
+## 2026-11-27: Connecting a plan in the welcome window and in Settings
+
+The welcome window's key page became **How Worklens summarizes**, with three cards: Claude
+subscription, ChatGPT subscription and Gemini API key. Settings → Connections' "AI providers"
+became **Summaries**, with the same three as rows. Both are built from one list
+(`SummaryConnection.all`), so neither hard-codes Gemini any more.
+
+- **The card asks; the person signs in.** A subscription card shows what `claude auth status` or
+  `codex login status` said (not installed, installed but signed out, signed in with which plan,
+  connected) and the exact sign-in command with **Copy** and **Open Terminal**. It asks again
+  whenever the window comes back to the front. Worklens never runs the sign-in, never reads a
+  credential, and **Disconnect** only takes the name out of `SUMMARY_PROVIDERS`.
+- **Connect checks first.** It runs the status command again and writes the name only when the
+  command is signed in with a plan. A list still in the default order keeps it (Claude, ChatGPT,
+  Gemini); a list the person reordered gets the newcomer at the end.
+- **The order arrows live in Connections**, on the rows themselves, rather than in Advanced:
+  the row is where you see which one is failing, so it is where you move it.
+- **A Gemini key joins the list.** Saving one while `SUMMARY_PROVIDERS` names a plan adds
+  `gemini`; disconnecting Gemini forgets the key, as before, and takes it out. With nothing
+  listed, a key alone works exactly as it did.
+- **Notices come from the chain, re-derived every refresh.** Signed out (one each for Claude and
+  ChatGPT), a plan at its limit (with the reset time and who summarizes meanwhile) and more than
+  a hundred screenshots older than an hour. A screenshot younger than an hour is waiting for its
+  turn, not stuck, so it is never counted. A signed-out notice stays after the chain's quarter
+  hour until a call works or a status check finds the command signed in again; that check runs
+  every five minutes while one is failing, and it moves summaries back to the first provider at
+  once. The backlog notice is raised only when a subscription is in the order, so a Gemini-only
+  install keeps exactly the notices it had. `noGeminiKey` is now `noSummarizer`, under the same
+  stored raw value, and opens Connections.
+- **Privacy words name the service you connect.** With a plan, that company's terms for your
+  plan apply and training is your own setting with it (both settings are linked); Google's paid
+  Gemini API does not train. The billing caveat sits on the Gemini card only.
+
 ## Things only the user can do
 
 Settings → Connections checks the keys and the `claude_desktop_config.json` entry, and

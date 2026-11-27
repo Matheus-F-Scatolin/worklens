@@ -169,7 +169,7 @@ public enum SampleWeekHandoff {
         if !setup.screenRecording {
             return MenuModel.statusRow(menuState(.permissionMissing, locale), now: now, timeZone: timeZone).text
         }
-        if !setup.geminiKey { return MenuModel.firstRunText }
+        if !setup.summaries { return MenuModel.firstRunText }
         switch scheduler {
         // Stopped (start-on-launch off, or capture never started): nothing arrives in a minute,
         // so the menu's own word, not a promise.

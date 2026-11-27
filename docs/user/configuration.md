@@ -16,8 +16,11 @@ Keys resolve in this order, first hit wins per key:
 5. `./.env`
 6. the built-in default
 
-The one API key Worklens uses, Gemini's, can be typed in the app: Settings → Connections → **AI
-providers** has its row — press **Connect…** or **Change**, paste the key, and Worklens saves it and
+How Worklens summarizes is chosen in the app: Settings → Connections → **Summaries** has a row
+each for a Claude plan, a ChatGPT plan and a Gemini key. **Connect** on a plan asks `claude` or
+`codex` whether it is signed in and, if so, adds it to `SUMMARY_PROVIDERS`; the arrows change the
+order they are tried in, and **Disconnect** takes one out without signing the command out. The one
+API key Worklens uses, Gemini's, is typed on its row — press **Connect…** or **Change**, paste the key, and Worklens saves it and
 asks Google straight away (one free models-list request; no tokens, $0). It is stored
 masked in the settings file above, so a layer that outranks it still wins — the row says so rather than accepting an edit that would
 change nothing.

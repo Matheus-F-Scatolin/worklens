@@ -284,7 +284,7 @@ detail "scripts/setup.sh does the rest; you have already said yes to all of it."
 # database inside a git checkout this script pulls into. The installed app keeps the standard
 # data directory instead, and this folder holds only source.
 #
-# setup.sh ends with "What is left for you" — Screen Recording and the Gemini key, the two steps
+# setup.sh ends with "What is left for you" — Screen Recording and a way to summarize, the two steps
 # no script can take — so that is the last thing on screen for both paths, and this script adds
 # nothing after it. A failed build stops setup.sh with the log's path and what to try, and
 # running this line again picks up from there.

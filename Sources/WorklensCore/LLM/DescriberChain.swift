@@ -106,6 +106,27 @@ public final class DescriberChain: VisionDescriber {
         return failure.isRefusal || failure.isUnreachable ? now.addingTimeInterval(skipFor) : nil
     }
 
+    /// The links being skipped and why, for the notices (Part 2). An entry stays after its time
+    /// runs out until a call through that link works, or `forgetSkip` is told the command is
+    /// signed in again: a sign-in that stopped working is still a problem a quarter hour later.
+    public func skipped() -> [SummaryNotices.Skip] {
+        let entries = skips.withLock { $0 }
+        return entries.compactMap { name, entry in
+            guard let provider = SummaryProvider(rawValue: name) else { return nil }
+            return SummaryNotices.Skip(
+                provider: provider, until: entry.until,
+                kind: DescribeHealth.classify(entry.error, provider: name).kind
+            )
+        }
+    }
+
+    /// Forgets why a link was skipped, so the next screenshot tries it first again. Called when
+    /// a status check finds the command signed in with a plan, so signing back in moves the
+    /// summaries back without waiting out the quarter hour.
+    public func forgetSkip(_ provider: SummaryProvider) {
+        skips.withLock { $0[provider.rawValue] = nil }
+    }
+
     /// The link a chain's error came from, for the ledger and the menu. Nil for any other error.
     public static func failedLink(_ error: Error) -> (provider: String, model: String)? {
         guard let failed = error as? Failed else { return nil }

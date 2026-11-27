@@ -16,7 +16,7 @@ extension AppModel {
     func setupCanContinue(from page: SetupPage) -> Bool {
         switch page {
         case .screenRecording: return screenRecording == .granted
-        case .keys: return setupProgress.geminiKey
+        case .keys: return setupProgress.summaries
         case .appearance, .privacy, .tour, .ready: return true
         }
     }
@@ -27,7 +27,7 @@ extension AppModel {
         case .screenRecording:
             return screenRecording == .granted ? nil : SetupCopy.screenRecordingSkip
         case .keys:
-            return setupProgress.geminiKey ? nil : SetupCopy.keysLater
+            return setupProgress.summaries ? nil : SetupCopy.keysLater
         case .appearance, .privacy, .tour, .ready:
             // #357: the tour is part of setting up. Its page has Take the tour, and
             // Continue once a tour has ended (`setupTourTaken`), never a Skip.

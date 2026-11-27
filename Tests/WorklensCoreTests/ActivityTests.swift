@@ -48,7 +48,7 @@ struct MenuActivityTests {
         #expect(rendered([], scheduler: .idle).isBusy == false)
         // A missing Gemini key is the thing the user has to act on; a sync must not hide it for
         // as long as it runs.
-        let noKey = [Notice(.noGeminiKey, at: dayStart)]
+        let noKey = [Notice(.noSummarizer, at: dayStart)]
         #expect(rendered([syncing], notices: noKey).icon == .attention)
         #expect(rendered([syncing], notices: noKey).isBusy)
         #expect(rendered([], notices: noKey).icon == .attention)

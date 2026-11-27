@@ -126,6 +126,38 @@ public struct DescribeQueries: Sendable {
         }
     }
 
+    /// When each provider last wrote a summary, keyed by its ledger name (`claude`, `codex`,
+    /// `gemini`). Settings → Connections shows it on each row. Inherited rows carry the provider
+    /// of the summary they repeat, so they are left out: nothing was asked of anyone.
+    public func lastSummaryByProvider() throws -> [String: Date] {
+        try db.writer.read { db in
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT provider, MAX(created_at) AS at FROM descriptions
+                WHERE is_inherited = 0
+                GROUP BY provider
+                """)
+            var answer: [String: Date] = [:]
+            for row in rows {
+                guard let provider: String = row["provider"], let at: Date = row["at"] else { continue }
+                answer[provider] = at
+            }
+            return answer
+        }
+    }
+
+    /// How many screenshots captured before `before` are still waiting for a summary: the
+    /// backlog notice's count. The caller passes a time well in the past
+    /// (`SummaryNotices.pastDueAfter`), so a screenshot waiting for a batch that is not due yet
+    /// is never counted as stuck.
+    public func waitingCount(capturedBefore before: Date) throws -> Int {
+        try db.writer.read { db in
+            try Int.fetchOne(db, sql: """
+                SELECT COUNT(*) FROM captures
+                WHERE describe_status = ? AND captured_at < ?
+                """, arguments: [DescribeStatus.pending.rawValue, before]) ?? 0
+        }
+    }
+
     /// Puts back the frames a rejected key threw away (#125).
     ///
     /// `describe_status = 'failed'` is terminal — nothing in Worklens ever resets it — so before

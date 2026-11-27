@@ -223,7 +223,7 @@ struct SetupProgressTests {
         onboardedAt: Date? = nil
     ) -> SetupProgress {
         SetupProgress(
-            screenRecording: screenRecording, geminiKey: gemini, onboardedAt: onboardedAt
+            screenRecording: screenRecording, summaries: gemini, onboardedAt: onboardedAt
         )
     }
 
@@ -247,7 +247,7 @@ struct SetupProgressTests {
         // counter: it has been asked once, and the key's own problem row says the rest.
         let partial = progress(onboardedAt: now)
         #expect(partial.menuLine == nil)
-        #expect(partial.remaining == [.screenRecording, .geminiKey])
+        #expect(partial.remaining == [.screenRecording, .summaries])
     }
 }
 
@@ -349,7 +349,7 @@ struct SetupCopyTests {
             SetupCopy.screenRecordingWhy, SetupCopy.screenRecordingRelaunch,
             SetupCopy.screenRecordingGranted, SetupCopy.screenRecordingSkip,
             SetupCopy.keysWhy, SetupCopy.keysLater,
-            SetupCopy.geminiHeading, SetupCopy.geminiRequired, SetupCopy.geminiWhy,
+            SetupCopy.signInIsYours, SetupCopy.geminiWhy, SetupCopy.subscriptionCost,
             SetupCopy.geminiCost, SetupCopy.geminiLinkLabel,
             SetupCopy.readyCapturing, SetupCopy.readyStartsOnClose,
             SetupCopy.readyClaudeHeading, SetupCopy.readyClaudeBody,

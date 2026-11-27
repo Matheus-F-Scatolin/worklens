@@ -239,8 +239,8 @@ touches a file that is already there. `EnvTemplate` renders from `Config.keys` l
 `EnvExample` does, with two differences: only `.secret` keys are live lines (blank, waiting),
 and every other key including `DATA_DIR` is commented out at its default, so a written file
 changes no value and the binary stays the single source of where data lives. The menu answers
-the same condition with `MenuModel.firstRunLine` — "Add your Gemini API key to get started" over
-"Open .env…" — while `state.firstRun` (no Gemini key) suppresses the two missing-key
+the same condition with `MenuModel.firstRunLine` — "Pick how Worklens summarizes to get started"
+over "Open .env…" — while `state.firstRun` (nothing to summarize with) suppresses the two missing-key
 problems that would otherwise say the same thing twice. `worklens config-dump` prints "no
 configuration file found; defaults in use" under its layer list, and
 `worklens config-example --first-run` prints the template itself.
@@ -673,6 +673,7 @@ strings from `Identifiers.new()` — except `ax_snapshots`, whose primary key *i
 | `WorklensCore/LLM/ClaudeDescriber.swift`, `CodexDescriber.swift` | the two subscription describers: isolated argv, stdin, parsing of the stream-json / JSONL events, failure classes, $0 cost. `CodexModelResolver` turns a family into a slug from `codex debug models`, cached in `DATA_DIR/run/codex-models.json`. Shapes in `docs/api-shapes.md` |
 | `WorklensCore/LLM/DescriberChain.swift` | `SUMMARY_PROVIDERS` in order: the first link that answers wins and labels the row; account failures are skipped for a while; `Failed` names the link for the ledger |
 | `WorklensCore/Describe/SummaryProviders.swift` | `SummaryProvider` and `SummaryProviders`: parsing the key, `effective` (empty is Gemini alone), and `describer(config:)`, the one place the app and the CLI build the describer |
+| `WorklensCore/Describe/SummaryConnections.swift` | what the person sees of them: `SummaryConnection` (the welcome window's three cards and Settings → Connections' three rows: not installed, signed out, not a subscription, ready, connected; the words and the order sentence), the `SUMMARY_PROVIDERS` edits Connect, Disconnect and the arrows make (`connecting`, `disconnecting`, `moving`), and `SummaryNotices`, which derives the signed-out, plan-limit and backlog notices from `DescriberChain.skipped()` on every `refreshCounters`. The app side is `AppModel+Summaries.swift`; nothing there runs a sign-in, reads a credential or signs a command out |
 | `WorklensCore/Describe/DescribeHealth.swift` | #125: whether the describe queue is moving — `.ok` / `.holding(until:reason:)` / `.failing(message:httpStatus:)` — plus `classify(_:provider:)`, which turns one describe error into an error *class* ("Gemini rejected the key") and a `isRefusal` flag. The one place a provider's response body is looked at and thrown away: nothing downstream, log or menu, ever carries it. `DescribeWorker` raises it through `healthHandler`; `MenuState.describeHealth` renders it. A refusal (400 `API_KEY_INVALID` / 401 / 403, and 429 after the client's own retries) holds the whole queue instead of spending the frame's three attempts, and `DescribeQueries.requeueRejectedFailures` puts back the frames an earlier build had already marked `failed`. `keyWasRejected(httpStatus:error:)` (#189) is the same line drawn over a stored `llm_calls` row instead of a live error — 401, 403, or a 400 whose `error` text satisfies `saysKeyInvalid` — and is the only thing that repair re-queues on, so a plain 400 about the frame itself (an oversized image, a malformed request) is left `failed` instead of being re-described at every reload |
 | `WorklensCore/Stats/` | `DailyStats`/`WeeklyStats` and `StatsAggregator` (pure), `StatsService` (the DB side), `ISOWeek`, `DayIndex` (#134 — one grouped query per day: frames, described, whether there are `activity_blocks` to draw a timeline from, and their minutes; `MCPDay`/`days(limit:)` are the frozen answer the MCP `days` tool gives, `entries(limit:)` the reader's fuller one), `DayAccounting` (#320 — pure, every minute of a day in one of eleven buckets; `StatsService+Accounting` reads what it needs), `ProjectSpans` (#322 — pure, every covered minute on one project span with the rule that decided it; `ProjectSpanService` reads the evidence), Timesheet (#323 — pure, span's by-project table) and `ProjectNames` — the pure clean-up that turns the describer's free-text `project_hint` into the handful of names `DailyStats.byProject` is keyed on (#70), folded onto `taxonomy.json`'s canonical `projects` where the list claims them (#90). Since #91 the same names also key `DailyStats.threads` (`ThreadStat`: visits, re-entries, longest run, median gap) and `WeeklyStats.projectLedger` (`ProjectLedgerRow`, project × day minutes) |
 | `WorklensCore/Taxonomy/` | `Taxonomy` (apps, tasks, and #90's `ProjectEntry`), `TaxonomySeed` (plus #312's `appsRevision` / `additions`), `TaxonomyStore` (the file side: seed, 30 s reload, `resolve`, `resolveProject`, validated `save`), `TaxonomyMerge` and `AppLabelRepair` (#312: seed apps merged into an existing file once, past frames relabelled), `ProjectLearning` (pure: which spellings are aliases and which cluster has earned being a project) and `ProjectCatalog` (the DB + file wiring, and every hand edit the CLI and the Projects settings tab make) |
@@ -746,6 +747,9 @@ lone `GeminiClient` or a `DescriberChain`; `DescribeStack` and `AppModel` both c
 says which are ready without summarizing anything. `DescribeHealth.Failure.kind` names the
 account failures (notInstalled, signedOut, notSubscription, usageLimit, timedOut), which hold the
 queue like a refusal or an outage and spend no frame's attempts. Decision in `docs/decisions.md`.
+The welcome window's `.keys` page is "How Worklens summarizes" and `SetupStep.summaries` /
+`SetupProgress.summaries` (was `geminiKey`) is satisfied by any provider in the effective order;
+`SetupIssue.noSummarizer` keeps the stored raw value `noGeminiKey`.
 
 **Config keys added in M5:** `CONTEXT_SYNC_MINUTES` (default 15) — how often the context sources
 are pulled. (`GRANOLA_MODE` was removed in #87 along with the local-cache source it selected.)
@@ -1344,7 +1348,7 @@ whole of it: a `Notice` is a kind (`problem`, `done`, `info`), a message, an ins
 had nothing to hang on — while a `.problem` stays until the user dismisses it, and one raised by
 a `SetupIssue` until that condition is re-derived as false. `SetupIssue` covers the conditions
 that are re-derived rather than remembered — `screenRecordingDenied`, `keyRejected`,
-`noGeminiKey` — raised in `AppModel.buildServices` and cleared there on reload
+`noSummarizer` (stored as `noGeminiKey`) — raised in `AppModel.buildServices` and cleared there on reload
 (`noAnthropicKey` still decodes from an old `app_state` row, and is never raised). #139 added `googleReconnect`, re-derived on
 every `refreshCounters` from `ContextSyncScheduler.sourcesNeedingReconnect` (itself the typed
 `SourceStatus.needsReconnect` flag, set from `GoogleAuth.needsReconnect(_:)` rather than from the

@@ -10,6 +10,8 @@ data/
   timeline/YYYY-MM-DD.md     # only if a build from before 2026-10-05 wrote it; kept
   reports/daily|weekly/      # only if a build from before 2026-10-05 wrote reports; kept
   logs/
+  run/cli-empty/             # the empty folder `claude` and `codex` summarize in, if you use a plan
+  run/cli-tmp/               # short-lived files `codex` needs as paths, deleted after each call
 ```
 
 The folder and everything in it are readable by your macOS account only: folders are 0700 and
@@ -75,7 +77,7 @@ read that and want it anyway.
 no sync, no server and no merge tool, and a shared folder is the failure above rather than a
 workaround for it. Each Mac writes its own name into `app_state` on first run; if a data directory turns out to
 have been written by a different Mac, the menu says which one. The name stays on your disk and
-never reaches Gemini.
+never reaches the service that summarizes.
 
 Moving to a new Mac is a folder copy, not a merge:
 

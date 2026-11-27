@@ -28,7 +28,8 @@ public enum SetupPage: String, Sendable, CaseIterable, Equatable, Hashable, Iden
     case tour
     /// Screen Recording: the one grant without which there is nothing to describe.
     case screenRecording
-    /// The Gemini key, which Worklens needs.
+    /// How Worklens summarizes: a Claude or ChatGPT plan, or a Gemini key. One is enough. The
+    /// raw value stays `keys`, so a window left on this page before it was renamed resumes here.
     case keys
     /// Where your days show up: Claude Desktop, or the window this one hands over to.
     case ready
@@ -42,7 +43,7 @@ public enum SetupPage: String, Sendable, CaseIterable, Equatable, Hashable, Iden
         case .privacy: return "What Worklens does"
         case .tour: return "See a sample week"
         case .screenRecording: return "Screen Recording"
-        case .keys: return "Your keys"
+        case .keys: return "How Worklens summarizes"
         case .ready: return "Ready"
         }
     }
@@ -59,7 +60,7 @@ public enum SetupPage: String, Sendable, CaseIterable, Equatable, Hashable, Iden
         case .screenRecording:
             return "macOS has to grant this before Worklens can see a single pixel."
         case .keys:
-            return "One key Worklens needs, and one you can leave for later or never."
+            return "Pick one way to summarize your screenshots. One is enough, and you can add another later."
         case .ready:
             return "Everything above is set. Here is where your days show up."
         }
@@ -111,8 +112,9 @@ public enum SetupPage: String, Sendable, CaseIterable, Equatable, Hashable, Iden
 public enum SetupStep: String, Sendable, CaseIterable, Equatable {
     /// macOS has granted Screen Recording to this build.
     case screenRecording
-    /// `GEMINI_API_KEY` resolves, so a frame can be described.
-    case geminiKey
+    /// Something is set up to summarize a screenshot: a connected Claude or ChatGPT plan, or a
+    /// Gemini key (`SummaryProviders.effective` is not empty).
+    case summaries
     /// The welcome window was finished — `onboarded_at` is in `app_state`.
     case welcome
 
@@ -120,7 +122,7 @@ public enum SetupStep: String, Sendable, CaseIterable, Equatable {
     public var label: String {
         switch self {
         case .screenRecording: return L10n.string("Screen Recording")
-        case .geminiKey: return L10n.string("Gemini key")
+        case .summaries: return L10n.string("A way to summarize")
         case .welcome: return L10n.string("Finish this window")
         }
     }
@@ -133,25 +135,26 @@ public enum SetupStep: String, Sendable, CaseIterable, Equatable {
 /// both launch gates testable without a menu bar or a database.
 public struct SetupProgress: Equatable, Sendable {
     public var screenRecording: Bool
-    public var geminiKey: Bool
+    /// Something is set up to summarize: `SummaryProviders.effective(config)` is not empty.
+    public var summaries: Bool
     /// `onboarded_at`: when the welcome was finished — or written silently for an install
     /// that predates this window. Nil means the sequence has not been completed on this Mac.
     public var onboardedAt: Date?
 
     public init(
         screenRecording: Bool = false,
-        geminiKey: Bool = false,
+        summaries: Bool = false,
         onboardedAt: Date? = nil
     ) {
         self.screenRecording = screenRecording
-        self.geminiKey = geminiKey
+        self.summaries = summaries
         self.onboardedAt = onboardedAt
     }
 
     public func isDone(_ step: SetupStep) -> Bool {
         switch step {
         case .screenRecording: return screenRecording
-        case .geminiKey: return geminiKey
+        case .summaries: return summaries
         case .welcome: return onboardedAt != nil
         }
     }
@@ -161,7 +164,7 @@ public struct SetupProgress: Equatable, Sendable {
     public var isComplete: Bool { remaining.isEmpty }
 
     /// Whether the welcome has been finished at all. The menu line is about *this*, not about
-    /// the three steps: an install that went through the window and decided against a key has
+    /// the three steps: an install that went through the window and decided against every way to summarize has
     /// already been asked once, and a permanent counter would be a nag for a decision made.
     public var onboarded: Bool { onboardedAt != nil }
 

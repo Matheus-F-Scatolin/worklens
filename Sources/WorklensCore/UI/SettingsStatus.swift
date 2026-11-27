@@ -46,12 +46,18 @@ public struct SettingsNeed: Equatable, Sendable {
     /// only when it is fixed.
     public let noticeID: UUID?
     public let at: Date?
+    /// The troubleshooting paragraph for it, when its issue has one: the row's **Learn more**.
+    public let help: HelpLink?
 
-    public init(sentence: String, remedy: SettingsStatus.Remedy, noticeID: UUID? = nil, at: Date? = nil) {
+    public init(
+        sentence: String, remedy: SettingsStatus.Remedy, noticeID: UUID? = nil, at: Date? = nil,
+        help: HelpLink? = nil
+    ) {
         self.sentence = sentence
         self.remedy = remedy
         self.noticeID = noticeID
         self.at = at
+        self.help = help
     }
 
     /// The section the dot goes on.
@@ -106,7 +112,7 @@ extension SettingsStatus {
             }
             needs.append(SettingsNeed(
                 sentence: SettingsStatus.clause(notice.message), remedy: remedy,
-                noticeID: notice.id, at: notice.at
+                noticeID: notice.id, at: notice.at, help: notice.issue?.helpLink
             ))
         }
         for name in state.integrationsNeedingAttention {
