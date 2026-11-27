@@ -23,7 +23,8 @@ public struct MCPServer: Sendable {
         guard let requested, supportedProtocolVersions.contains(requested) else { return protocolVersion }
         return requested
     }
-    public static let serverName = "worklens"
+    /// `worklens`, or `worklens-rehearsal` for the install rehearsal (`AppIdentity`).
+    public static var serverName: String { AppIdentity.current.mcpServerName }
 
     private let registry: MCPToolRegistry
     private let version: String

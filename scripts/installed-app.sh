@@ -7,12 +7,18 @@
 # not quit it, and `make install` warns before replacing it.
 #
 # Exit 1 and silence when there is no such copy — callers treat that as "use build/Worklens.app".
+#
+# usage: scripts/installed-app.sh [--rehearsal]   (--rehearsal: Worklens Rehearsal.app instead)
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 REPO="$PWD"
+# shellcheck source=scripts/app-identity.sh
+source scripts/app-identity.sh
+wl_identity "$([[ "${1:-}" == --rehearsal ]] && echo rehearsal || echo main)"
 
-for candidate in "/Applications/Worklens.app" "$HOME/Applications/Worklens.app"; do
+for candidate in "/Applications/$WL_APP_BUNDLE" "$HOME/Applications/$WL_APP_BUNDLE"; do
+  wl_guard "$candidate"
   [[ -d "$candidate" ]] || continue
   stamped="$(plutil -extract WLRepoPath raw -o - "$candidate/Contents/Info.plist" 2>/dev/null || true)"
   [[ "$stamped" == "$REPO" ]] || continue

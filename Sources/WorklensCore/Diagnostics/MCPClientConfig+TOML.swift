@@ -15,13 +15,16 @@ import Foundation
 enum MCPTOML {
     // MARK: Reading
 
-    static func parse(_ text: String) -> MCPClientConfig.Entry {
+    static func parse(_ text: String, identity: AppIdentity = .current) -> MCPClientConfig.Entry {
         let file = File(text)
         let servers = file.servers
-        let named = servers[MCPClientConfig.serverName]
-        let byCommand = servers.keys.sorted().lazy.compactMap { servers[$0] }.first {
-            $0.command?.hasSuffix("/Worklens") == true
-        }
+        let named = servers[identity.mcpServerName]
+        let byCommand = servers.keys.sorted().lazy.compactMap { key -> Server? in
+            guard let server = servers[key],
+                  identity.claimsMCPEntry(key: key, command: server.command)
+            else { return nil }
+            return server
+        }.first
         guard let server = named ?? byCommand else {
             if let why = file.unsupported { return .unreadable(why) }
             return .notConfigured
@@ -32,26 +35,32 @@ enum MCPTOML {
         return .configured(command: command, args: server.args, env: server.env)
     }
 
-    static func installedKey(in text: String) -> String? {
+    static func installedKey(in text: String, identity: AppIdentity = .current) -> String? {
         let servers = File(text).servers
-        if servers[MCPClientConfig.serverName] != nil { return MCPClientConfig.serverName }
-        return renamedKey(in: servers)
+        if servers[identity.mcpServerName] != nil { return identity.mcpServerName }
+        return renamedKey(in: servers, identity: identity)
     }
 
     /// Same rule as the JSON side's `renamedEntryKey`: no `worklens` table, but one that launches
     /// a binary called `Worklens`.
-    static func renamedKey(in servers: [String: Server]) -> String? {
-        guard servers[MCPClientConfig.serverName] == nil else { return nil }
-        return servers.keys.sorted().first { servers[$0]?.command?.hasSuffix("/Worklens") == true }
+    static func renamedKey(
+        in servers: [String: Server], identity: AppIdentity = .current
+    ) -> String? {
+        guard servers[identity.mcpServerName] == nil else { return nil }
+        return servers.keys.sorted().first {
+            identity.claimsMCPEntry(key: $0, command: servers[$0]?.command)
+        }
     }
 
     // MARK: Writing
 
     /// The file with `key`'s tables replaced by `plan`, or with them appended when there are none.
-    static func installing(_ plan: MCPClientConfig.Plan, into text: String) throws -> String {
+    static func installing(
+        _ plan: MCPClientConfig.Plan, into text: String, identity: AppIdentity = .current
+    ) throws -> String {
         let file = File(text)
         if let why = file.unsupported { throw MCPClientConfig.InstallError.unmergeable(why) }
-        let key = renamedKey(in: file.servers) ?? MCPClientConfig.serverName
+        let key = renamedKey(in: file.servers, identity: identity) ?? identity.mcpServerName
         let block = entry(plan, key: key)
         var lines = file.lines
         let owned = file.lineRanges(of: key)

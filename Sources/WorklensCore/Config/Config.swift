@@ -627,6 +627,15 @@ public struct Config: Sendable, Equatable {
         let cwdEnv = cwd.appendingPathComponent(".env")
         let loaded = try load(sources: read.named, cwd: cwd, lenient: lenient)
         var config = loaded.config
+        // The install rehearsal never opens the real app's folder, whatever a layer says.
+        if AppIdentity.current.refusesDataDir(
+            config.dataDir, home: FileManager.default.homeDirectoryForCurrentUser
+        ) {
+            throw ConfigError.outOfRange(
+                key: "DATA_DIR", value: config.dataDir.path,
+                range: "anywhere outside ~/Library/Application Support/Worklens, the real app's folder"
+            )
+        }
         // #128: the single seam where what you blocked in the app meets what the files said.
         // Both processes load through here, so the menu-bar app, the CLI and
         // `PrivacyPolicy` cannot disagree about the three lists. It defaults to sitting beside
@@ -1020,21 +1029,23 @@ public struct Config: Sendable, Equatable {
         URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
     }
 
-    /// The identifier `Resources/Info.plist` gives the bundled app. Matching on it — rather than
-    /// on "has any bundle identifier at all" — is what keeps `swift run`, the CLI and the test
-    /// runner on `./data`: those either have no identifier or have somebody else's.
-    public static let bundleIdentifier = "dev.worklens.app"
+    /// The identifier this process's bundle carries: `dev.worklens.app` for the real app (what
+    /// `Resources/Info.plist` says), `dev.worklens.rehearsal` for the install rehearsal.
+    /// `AppIdentity` has the rule; `swift run`, the CLI and the tests are `.main`.
+    public static var bundleIdentifier: String { AppIdentity.current.bundleIdentifier }
 
-    /// True in `Worklens.app`, false under `swift run`, the CLI and the tests.
+    /// True in `Worklens.app` and `Worklens Rehearsal.app`, false under `swift run`, the real
+    /// app's CLI and the tests, which stay on `./data`. The rehearsal's CLI counts as bundled as
+    /// well, so `worklens-rehearsal` reads the rehearsal's own data from any directory.
     public static var isBundledApp: Bool {
-        Bundle.main.bundleIdentifier == Config.bundleIdentifier
+        AppIdentity(bundleIdentifier: Bundle.main.bundleIdentifier) != nil
+            || AppIdentity.current == .rehearsal
     }
 
-    /// `~/Library/Application Support/Worklens` — the app's own corner of the disk, and the only
-    /// place it writes without being told to.
+    /// `~/Library/Application Support/Worklens` (`… /Worklens Rehearsal` for the rehearsal) —
+    /// the app's own corner of the disk, and the only place it writes without being told to.
     public static func appSupportDir() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Worklens")
+        AppIdentity.current.appSupportDir(home: FileManager.default.homeDirectoryForCurrentUser)
     }
 
     public static func appSupportEnvURL() -> URL {

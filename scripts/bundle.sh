@@ -1,11 +1,28 @@
 #!/usr/bin/env bash
 # Assembles build/Worklens.app from the release binary. Run `make build` first.
+#
+# usage: scripts/bundle.sh [--rehearsal]
+#   --rehearsal  assemble build/Worklens Rehearsal.app instead: the same binary under the
+#                install rehearsal's name and bundle identifier (docs/rehearsal.md)
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+# shellcheck source=scripts/app-identity.sh
+source scripts/app-identity.sh
+
+IDENTITY=main
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --rehearsal) IDENTITY=rehearsal ;;
+    *) echo "error: unknown argument $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+wl_identity "$IDENTITY"
 
 BIN=".build/release/Worklens"
-APP="build/Worklens.app"
+APP="$WL_BUILD_APP"
+wl_guard "$APP" "$PWD/$APP" "$WL_BUNDLE_ID"
 
 if [[ ! -x "$BIN" ]]; then
   echo "error: $BIN not found — run 'make build' first" >&2
@@ -35,6 +52,15 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Worklens"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
+# The rehearsal is the same binary under its own identity: the bundle identifier is what macOS
+# keys Screen Recording, notifications, preferences and Launch Services on, and the binary reads
+# it back (`AppIdentity`) to pick its own Application Support folder, keychain service and MCP
+# name. The executable keeps its name, so `Contents/MacOS/Worklens` is the same path in both.
+if [[ "$WL_IDENTITY" == rehearsal ]]; then
+  plutil -replace CFBundleIdentifier -string "$WL_BUNDLE_ID" "$APP/Contents/Info.plist"
+  plutil -replace CFBundleName -string "$WL_APP_NAME" "$APP/Contents/Info.plist"
+  plutil -replace CFBundleDisplayName -string "$WL_APP_NAME" "$APP/Contents/Info.plist"
+fi
 
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 

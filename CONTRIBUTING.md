@@ -38,6 +38,8 @@ These are all of them — `make help` prints the same list.
 | `make dev-cert` | Create that certificate — once per Mac, asks for your login password |
 | `make install` | Copy the app to `/Applications` and symlink `worklens` onto your `PATH` |
 | `make uninstall` | Remove what setup put on this Mac and keep the data (`UNINSTALL_ARGS=--dry-run` prints the list; `--delete-data` deletes the data too) |
+| `make rehearse` | Rehearse a new person's first install with a second app, Worklens Rehearsal, that never touches your real one, then a pass/fail checklist and a report ([docs/rehearsal.md](docs/rehearsal.md); `REHEARSE_ARGS=--dry-run` prints the plan) |
+| `make rehearse-clean` | List what the rehearsal added; `REHEARSE_CLEAN_ARGS=--yes` removes it |
 | `make run` | Launch the installed app if there is one, else `build/Worklens.app` |
 | `make install-env` | Point an installed app at this checkout: `./.env` merged into `~/Library/Application Support/Worklens/.env` with `DATA_DIR` pinned here, keeping every key that file already sets unless `ARGS=--force` (optional — the app writes its own `.env` and uses Application Support when there is none) |
 | `make update` | Pull, rebuild, re-sign, re-install and relaunch — what Settings → General → Updates' "Update and restart…" runs |
@@ -45,7 +47,7 @@ These are all of them — `make help` prints the same list.
 | `make format` | Rewrite `Sources` and `Tests` with `swift-format` |
 | `make format-check` | Report formatting violations without changing anything |
 | `make lint-strings` | Check the localization catalogs: `plutil -lint` on every `Resources/*.lproj`, and fail when a key the code asks for is missing from `en.lproj` |
-| `make test-scripts` | Check `scripts/build-progress.sh` against captured builds, `scripts/bootstrap.sh`'s command line tools step against stand-in tools, `scripts/uninstall.sh` against a fake home with stubbed `security`, `tccutil` and `pkill`, and that every troubleshooting anchor they link to exists |
+| `make test-scripts` | Check `scripts/build-progress.sh` against captured builds, `scripts/bootstrap.sh`'s command line tools step against stand-in tools, `scripts/uninstall.sh` and the rehearsal scripts against a fake home with stubbed `security`, `tccutil` and `pkill`, and that every troubleshooting anchor they link to exists |
 | `make check` | `format-check`, `lint-strings`, `lint-design`, `test-scripts`, then `test` |
 | `make doctor-toolchain` | Check the build toolchain — `make build` runs these first and never fails on them |
 | `make icon` | Re-render `Resources/AppIcon.icns`, the glyph previews and `docs/media/social-preview.png` from `WorklensMark.swift`; `ARGS=--banner` renders the social card alone. Uploading the card to the repository is the owner's step — see [docs/decisions.md](docs/decisions.md) → "Things only the user can do" |

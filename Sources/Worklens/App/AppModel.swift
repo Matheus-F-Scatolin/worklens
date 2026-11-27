@@ -422,7 +422,7 @@ final class AppModel: ObservableObject {
     /// "Update and restart…". Off when `AUTO_UPDATE_ENABLED=false`, and impossible for a copy of
     /// the app that was dragged out of the checkout it was built from.
     private func startAutoUpdater() {
-        guard config.autoUpdateEnabled, let repo = AppModel.repoRoot else { return }
+        guard config.autoUpdateEnabled, let repo = AppModel.updateRepoRoot else { return }
         let updater = AutoUpdater(repo: repo, pollMinutes: config.autoUpdatePollMinutes, model: self)
         autoUpdater = updater
         updater.start()
@@ -2494,7 +2494,12 @@ final class AppModel: ObservableObject {
     /// is the button that does. It works with `AUTO_UPDATE_ENABLED=false`, where there is no
     /// poller to ask.
     func checkForUpdates() {
-        guard let repo = AppModel.repoRoot else {
+        guard AppIdentity.current.updatesInPlace else {
+            updateCheckLine = AppModel.rehearsalUpdateLine
+            updateOffered = false
+            return
+        }
+        guard let repo = AppModel.updateRepoRoot else {
             updateCheckLine = "This copy of Worklens can't update itself."
             updateOffered = false
             return
@@ -2548,9 +2553,19 @@ final class AppModel: ObservableObject {
         isCheckout: { CheckoutLocator.looksLikeCheckout($0) }
     )
 
+    /// The checkout "Update and restart…" and the auto-update poll pull into: `repoRoot`, except
+    /// in the install rehearsal, which never updates itself — its checkout's `scripts/update.sh`
+    /// installs the real app, not the rehearsal (`AppIdentity.updatesInPlace`).
+    static var updateRepoRoot: URL? { AppIdentity.current.updatesInPlace ? repoRoot : nil }
+
+    /// What Settings → General → Updates says in the install rehearsal.
+    static var rehearsalUpdateLine: String {
+        String(localized: "The rehearsal never updates itself. Run make rehearse again for a newer build.", comment: "Setting detail")
+    }
+
     /// The menu item: confirm, then run the script with `--gui` so a failure opens the log.
     func updateAndRestart() {
-        guard let repo = AppModel.repoRoot, confirmUpdate(repo: repo) else { return }
+        guard let repo = AppModel.updateRepoRoot, confirmUpdate(repo: repo) else { return }
         runUpdateScript(arguments: ["--gui"], announce: true)
     }
 
@@ -2563,7 +2578,7 @@ final class AppModel: ObservableObject {
     /// the auto-update poll, which nobody asked for: it passes `--log` instead and a window
     /// never appears on its own.
     func runUpdateScript(arguments: [String], announce: Bool) {
-        guard let repo = AppModel.repoRoot else { return }
+        guard let repo = AppModel.updateRepoRoot else { return }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/bash")
         process.arguments = [repo.appendingPathComponent("scripts/update.sh").path] + arguments

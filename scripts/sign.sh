@@ -5,11 +5,28 @@
 # makes every rebuild look like a brand-new app and the permission has to be re-granted.
 # Run `make dev-cert` once to create the self-signed "Worklens Dev" certificate and plain
 # `make sign` finds it; SIGN_IDENTITY overrides the name, and SIGN_IDENTITY=- forces ad-hoc.
+#
+# usage: scripts/sign.sh [--rehearsal]
+#   --rehearsal  sign build/Worklens Rehearsal.app (the install rehearsal) with the same
+#                certificate
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+# shellcheck source=scripts/app-identity.sh
+source scripts/app-identity.sh
 
-APP="build/Worklens.app"
+VARIANT=main
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --rehearsal) VARIANT=rehearsal ;;
+    *) echo "error: unknown argument $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+wl_identity "$VARIANT"
+
+APP="$WL_BUILD_APP"
+wl_guard "$APP" "$PWD/$APP"
 DEFAULT_IDENTITY="Worklens Dev"
 ENTITLEMENTS="Resources/Worklens.entitlements"
 

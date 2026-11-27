@@ -13,7 +13,9 @@ import Foundation
 /// 2026-09-23 also carries a mail scope for the source that was removed then; its refresh token
 /// keeps working for Calendar, and the grant can be narrowed at myaccount.google.com/permissions.
 public actor GoogleAuth {
-    public static let service = "dev.worklens.google"
+    /// `dev.worklens.google`, or `dev.worklens.rehearsal.google` in the install rehearsal, so the
+    /// rehearsal never reads or replaces the real app's token.
+    public static var service: String { AppIdentity.current.keychainService("google") }
     public static let authorizeEndpoint = URL(string: "https://accounts.google.com/o/oauth2/v2/auth")!
     public static let tokenEndpoint = URL(string: "https://oauth2.googleapis.com/token")!
     public static let revokeEndpoint = URL(string: "https://oauth2.googleapis.com/revoke")!
