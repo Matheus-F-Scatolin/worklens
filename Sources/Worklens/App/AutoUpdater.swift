@@ -44,6 +44,8 @@ final class AutoUpdater {
     /// How long after handing off to `update.sh` this counts as an update in flight. Longer than
     /// a release build, short enough that a failed one does not wedge the poller for the day.
     nonisolated static let updateGrace: TimeInterval = 15 * 60
+    /// Why a poll skipped: the checkout this app was built from is no longer where it was.
+    nonisolated static let checkoutGone = "the checkout it was built from has moved or been deleted"
 
     init(repo: URL, pollMinutes: Int, model: AppModel) {
         self.repo = repo
@@ -72,6 +74,16 @@ final class AutoUpdater {
     /// One poll: gather the facts off the main actor, then act on the decision.
     func checkNow() async {
         let repo = self.repo
+        // The folder this poller was started on can be moved or deleted while the app runs.
+        // `git` cannot even start in a directory that is gone, which would read as offline
+        // forever; say it once and sit still until the next launch finds the checkout again.
+        guard CheckoutLocator.looksLikeCheckout(repo) else {
+            if lastBlocked != AutoUpdater.checkoutGone {
+                lastBlocked = AutoUpdater.checkoutGone
+                Log.ui.info("auto-update: not checking, \(AutoUpdater.checkoutGone)")
+            }
+            return
+        }
         let running = BuildStamp.current.commit
         let attempted = lastAttempted
         let activityRunning = model?.state.isBusy == true

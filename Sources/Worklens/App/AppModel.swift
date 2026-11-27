@@ -2495,7 +2495,7 @@ final class AppModel: ObservableObject {
     /// poller to ask.
     func checkForUpdates() {
         guard let repo = AppModel.repoRoot else {
-            updateCheckLine = "This copy of Worklens can't update itself."
+            updateCheckLine = AutoUpdatePolicy.noCheckoutLine(stampedPath: BuildStamp.current.repoPath)
             updateOffered = false
             return
         }
@@ -2542,11 +2542,16 @@ final class AppModel: ObservableObject {
     /// carries it, the bundle's grandparent otherwise. `CheckoutLocator` has the whole rule and
     /// the reasons; it lives in `WorklensCore` because this answer decides whether the app can
     /// update itself at all.
-    static let repoRoot: URL? = CheckoutLocator.resolve(
-        stampedPath: BuildStamp.current.repoPath,
-        bundleURL: Bundle.main.bundleURL,
-        isCheckout: { CheckoutLocator.looksLikeCheckout($0) }
-    )
+    ///
+    /// Asked afresh every time (two `stat` calls), not once at launch: a checkout moved while
+    /// the app runs — for weeks, in a menu bar — must stop being treated as here.
+    static var repoRoot: URL? {
+        CheckoutLocator.resolve(
+            stampedPath: BuildStamp.current.repoPath,
+            bundleURL: Bundle.main.bundleURL,
+            isCheckout: { CheckoutLocator.looksLikeCheckout($0) }
+        )
+    }
 
     /// The menu item: confirm, then run the script with `--gui` so a failure opens the log.
     func updateAndRestart() {

@@ -151,4 +151,15 @@ struct AutoUpdatePolicyTests {
             #expect(!line.contains("checkout"))
         }
     }
+
+    /// A stamped checkout that has since moved is not "offline": the old check ran `git` in the
+    /// vanished folder, failed to start, and blamed the network.
+    @Test("no checkout says which kind of copy this is, never offline")
+    func noCheckoutLines() {
+        let moved = AutoUpdatePolicy.noCheckoutLine(stampedPath: "/Users/x/old/worklens")
+        #expect(moved.hasPrefix("Worklens can't find the folder it was built from"))
+        #expect(!moved.contains("online"))
+        #expect(!moved.contains("/Users/x"))
+        #expect(AutoUpdatePolicy.noCheckoutLine(stampedPath: nil) == "This copy of Worklens can't update itself.")
+    }
 }
