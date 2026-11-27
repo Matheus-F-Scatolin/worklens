@@ -352,10 +352,11 @@ fi
 # ------------------------------------------------------------------ 5. the shared .env
 
 step "Installing the configuration where a bundled app can find it"
+support_shown="~${SUPPORT#"$HOME"}"
 cat <<EOF
     A bundled app does not inherit a shell's working directory, so it cannot see ./.env. It does
     not need to: with no configuration anywhere it writes its own
-    ~/Library/Application Support/Worklens/.env and keeps its data beside it (#116).
+    $support_shown/.env and keeps its data beside it (#116).
 
     'make install-env' is the other choice — it merges this checkout's .env into that file with
     DATA_DIR rewritten to this checkout's absolute path, which is what you want while working on
